@@ -1,0 +1,145 @@
+openapi: 3.1.0
+info:
+  title: Run21AI API
+  version: 0.1.0
+  description: Dispatcher-driven tool execution API.
+paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+  /tools:
+    get:
+      summary: List registered tools
+      responses:
+        '200':
+          description: Tool list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ToolDescriptor'
+  /tools/{code}:
+    get:
+      summary: Get registered tool descriptor
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Tool descriptor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ToolDescriptor'
+  /executions:
+    post:
+      summary: Execute input through dispatcher chain
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExecutionInput'
+      responses:
+        '200':
+          description: Tool result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ToolResult'
+  /executions/{id}:
+    get:
+      summary: Get execution result
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Tool result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ToolResult'
+components:
+  schemas:
+    ExecutionInput:
+      type: object
+      required: [inputType, payload]
+      properties:
+        inputType:
+          type: string
+          enum: [structured, unstructured]
+        targetTool:
+          type: string
+          nullable: true
+        payload:
+          type: object
+          additionalProperties: true
+        actor:
+          type: string
+          nullable: true
+        source:
+          type: string
+          nullable: true
+        correlationId:
+          type: string
+          nullable: true
+    ToolDescriptor:
+      type: object
+      required: [code, name, status]
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        status:
+          type: string
+    ToolResult:
+      type: object
+      required: [status, audit]
+      properties:
+        executionId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [accepted, running, succeeded, failed, rejected]
+        output:
+          type: object
+          nullable: true
+          additionalProperties: true
+        error:
+          $ref: '#/components/schemas/ToolError'
+        audit:
+          type: object
+          additionalProperties: true
+    ToolError:
+      type: object
+      nullable: true
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string

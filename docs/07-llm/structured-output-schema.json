@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://run21ai.local/schema/llm-dispatch-output.json",
+  "title": "LLM Dispatch Output",
+  "type": "object",
+  "required": ["outcome"],
+  "properties": {
+    "outcome": {
+      "type": "string",
+      "enum": ["accepted", "rejected", "passed"]
+    },
+    "targetTool": {
+      "type": ["string", "null"]
+    },
+    "payload": {
+      "type": ["object", "null"],
+      "additionalProperties": true
+    },
+    "missingFields": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "confidence": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "maximum": 1
+    },
+    "error": {
+      "type": ["object", "null"],
+      "additionalProperties": true
+    }
+  }
+}
