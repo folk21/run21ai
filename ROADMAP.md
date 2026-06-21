@@ -1,5 +1,17 @@
 # ROADMAP
 
+## Table of Contents
+
+* [Stage 1: Documentation and Contract Model - done](#stage-1-documentation-and-contract-model)
+* [Stage 2: Core Module - in_progress](#stage-2-core-module)
+* [Stage 3: First Runtime Skeleton - in_progress](#stage-3-first-runtime-skeleton)
+* [Stage 4: First Concrete Tool Module - in_progress](#stage-4-first-concrete-tool-module)
+* [Stage 5: Tool Registration Improvements - planned](#stage-5-tool-registration-improvements)
+* [Stage 6: CLI Client - in_progress](#stage-6-cli-client)
+* [Stage 7: LLM Dispatcher - planned](#stage-7-llm-dispatcher)
+* [Stage 8: Additional Tool Implementations - planned](#stage-8-additional-tool-implementations)
+* [Stage 9: System Tests - in_progress](#stage-9-system-tests)
+
 ## Stage 1: Documentation and Contract Model
 
 Status: done
@@ -141,15 +153,22 @@ Exit criteria:
 
 ## Stage 6: CLI Client
 
-Status: planned
+Status: in_progress
 
 Goals:
 
-* Add a Kotlin CLI client.
+* Add a CLI client.
 * Support health and tool execution commands.
 * Support structured tool calls.
 * Support raw dispatcher-chain calls.
 * Display structured output, structured errors, and audit metadata.
+
+Current scope:
+
+* `clients/run21ctl` Rust CLI client.
+* Health, readiness, tool listing, tool descriptor lookup, execution, and request resolution commands.
+* Cargo-based CLI contract tests outside the Gradle build.
+* REST API backend URL configuration through `--base-url` or `RUN21_BASE_URL`.
 
 Exit criteria:
 
@@ -192,3 +211,21 @@ Exit criteria:
 * New tool implementations can be registered without changing core semantics.
 * Each tool returns structured output or structured errors.
 * Audit metadata remains consistent across tool families.
+
+## Stage 9: System Tests
+
+Status: in_progress
+
+Current scope:
+
+* `tests/system` pytest module.
+* HTTP API system tests for health, readiness, tool discovery, formula execution, and structured errors.
+* Rust CLI smoke tests through `run21ctl`.
+* Optional backend startup through `RUN21_START_SERVER=true`.
+* Prompt-resolution future-contract tests marked as expected failures until a raw dispatcher is registered.
+
+Exit criteria:
+
+* System tests can run against a locally started REST backend.
+* CLI smoke tests can run against a built `run21ctl` binary.
+* Prompt-resolution tests become active when a raw/prompt dispatcher is implemented.

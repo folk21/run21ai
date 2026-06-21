@@ -19,12 +19,26 @@ Tools perform real work. Dispatchers analyze, normalize, enrich, validate, or ro
 
 Run21AI is domain-neutral. It can execute formula-oriented tools, document tools, lookup tools, workflow tools, spreadsheet-style tools, external service tools, and custom tools.
 
+## Project Navigation
+
+- [Roadmap](ROADMAP.md)
+- [Documentation Index](docs/INDEX.md)
+- [Requirements](docs/01-requirements/README.md)
+- [Core Documentation](docs/02-core/README.md)
+- [Architecture](docs/03-architecture/README.md)
+- [API Documentation](docs/05-api/README.md)
+- [Tool Documentation](docs/06-tools/README.md)
+- [Testing Documentation](docs/08-testing/README.md)
+
 ## Table of Contents
 
+- [Project Navigation](#project-navigation)
 - [Core Idea](#core-idea)
 - [Execution Modes](#execution-modes)
 - [Runtime Modules](#runtime-modules)
 - [Manual REST API Testing](#manual-rest-api-testing)
+- [Rust CLI Client](#rust-cli-client)
+- [System Tests](#system-tests)
 - [Core Package Overview](#core-package-overview)
 - [Example: Direct Tool Execution With BigDecimal Rounding](#example-direct-tool-execution-with-bigdecimal-rounding)
 - [Example: Mock LLM Dispatcher Calling the Same Tool](#example-mock-llm-dispatcher-calling-the-same-tool)
@@ -273,10 +287,24 @@ Available endpoints:
 ```text
 GET  /health
 GET  /ready
+GET  /docs
+GET  /openapi.yaml
 GET  /v1/tools
 GET  /v1/tools/{code}
 POST /v1/tool-requests/resolve
 POST /v1/executions
+```
+
+Open the interactive API documentation in a browser:
+
+```text
+http://127.0.0.1:8080/docs
+```
+
+The raw OpenAPI contract is available at:
+
+```text
+http://127.0.0.1:8080/openapi.yaml
 ```
 
 `POST /v1/executions` accepts a structured or prompt-like request. Structured requests execute through the same dispatcher-chain path as `ToolCalls.execute(...)`.
@@ -335,6 +363,7 @@ Basic checks:
 ```bash
 curl http://127.0.0.1:8080/health
 curl http://127.0.0.1:8080/ready
+curl http://127.0.0.1:8080/openapi.yaml
 curl http://127.0.0.1:8080/v1/tools
 curl http://127.0.0.1:8080/v1/tools/formula.evaluate
 ```
@@ -396,6 +425,107 @@ curl -X POST http://127.0.0.1:8080/v1/tool-requests/resolve \
     }
   }'
 ```
+
+## Rust CLI Client
+
+`clients/run21ctl` is an independent Rust CLI client for the Run21AI REST API. It is not included in
+the Gradle build.
+
+Cargo is installed with the Rust toolchain. On macOS or Linux, install it with `rustup`:
+
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
+
+Then open a new shell or reload your shell profile and verify:
+
+```bash
+cargo --version
+```
+
+Run its tests with Cargo:
+
+```bash
+cargo test --manifest-path clients/run21ctl/Cargo.toml
+```
+
+Call the backend health endpoint:
+
+```bash
+cargo run --manifest-path clients/run21ctl/Cargo.toml -- health
+```
+
+The client defaults to `http://127.0.0.1:8080`. Override the backend URL with `--base-url` or
+`RUN21_BASE_URL`.
+
+Useful commands:
+
+```bash
+cargo run --manifest-path clients/run21ctl/Cargo.toml -- ready
+cargo run --manifest-path clients/run21ctl/Cargo.toml -- tools
+cargo run --manifest-path clients/run21ctl/Cargo.toml -- tool formula.evaluate
+```
+
+Execute the formula tool through the REST API:
+
+```bash
+cargo run --manifest-path clients/run21ctl/Cargo.toml -- execute \
+  --tool-code formula.evaluate \
+  --implementation-code formula-evalex-v1 \
+  --input-json '{"expression":"a + b","variables":{"a":10,"b":11}}' \
+  --actor-id manual-user \
+  --correlation-id run21ctl-manual-test
+```
+
+See [clients/run21ctl/README.md](clients/run21ctl/README.md) for the full CLI command list.
+
+## System Tests
+
+`tests/system` contains pytest-based external contract tests for the REST API and Rust CLI.
+
+The tests exercise the deployed path from outside the process:
+
+```text
+pytest
+  -> HTTP API / Rust CLI
+  -> runtime:rest-api
+  -> DispatcherChain
+  -> ToolExecutor
+  -> ToolImplementation
+  -> ToolResult
+```
+
+Create a Python virtual environment and install the test dependencies:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -e tests/system
+```
+
+Run the tests from the repository root:
+
+```bash
+pytest tests/system
+```
+
+By default the tests expect the backend at `http://localhost:8080`. They can also start the backend
+for the test session:
+
+```bash
+RUN21_START_SERVER=true pytest tests/system
+```
+
+Useful configuration:
+
+```text
+RUN21_BASE_URL=http://localhost:8080
+RUN21_CLI_BIN=./clients/run21ctl/target/debug/run21ctl
+RUN21_START_SERVER=false
+RUN21_SERVER_CMD=./gradlew :runtime:rest-api:run
+```
+
+See [tests/system/README.md](tests/system/README.md) for details.
 
 ## Core Package Overview
 

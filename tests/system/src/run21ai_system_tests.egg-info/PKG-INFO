@@ -1,0 +1,7 @@
+Metadata-Version: 2.4
+Name: run21ai-system-tests
+Version: 0.1.0
+Summary: System tests for Run21AI REST API and Rust CLI contracts
+Requires-Python: >=3.11
+Requires-Dist: pytest>=8.0
+Requires-Dist: requests>=2.31

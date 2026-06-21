@@ -47,6 +47,26 @@ class RestApiApplicationTest {
     }
 
     /**
+     * Verifies that browser-facing API documentation endpoints are available.
+     */
+    @Test
+    fun `openapi and swagger docs endpoints are available`() = testApplication {
+        application {
+            run21RestApi()
+        }
+
+        val openApi = client.get("/openapi.yaml")
+        val docs = client.get("/docs")
+
+        assertEquals(HttpStatusCode.OK, openApi.status)
+        assertTrue(openApi.bodyAsText().contains("openapi: 3.1.0"))
+        assertTrue(openApi.bodyAsText().contains("/v1/executions:"))
+        assertEquals(HttpStatusCode.OK, docs.status)
+        assertTrue(docs.bodyAsText().contains("SwaggerUIBundle"))
+        assertTrue(docs.bodyAsText().contains("/openapi.yaml"))
+    }
+
+    /**
      * Verifies that the REST API exposes registered tool descriptors and their schemas.
      */
     @Test

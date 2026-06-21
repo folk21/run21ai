@@ -1,0 +1,24 @@
+{
+  "type": "structured",
+  "toolCode": "formula.evaluate",
+  "implementationCode": "formula-evalex-v1",
+  "input": {
+    "expression": "a + b",
+    "variables": {
+      "a": 10,
+      "b": 11
+    }
+  },
+  "actor": {
+    "id": "system-test-user",
+    "type": "human",
+    "displayName": "System Test User"
+  },
+  "source": {
+    "type": "api",
+    "name": "pytest"
+  },
+  "correlation": {
+    "correlationId": "system-test-formula-valid"
+  }
+}

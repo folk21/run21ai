@@ -3,6 +3,7 @@ package ai.run21.runtime.restapi
 import ai.run21.core.model.ToolCode
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
+import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.jackson.jackson
 import io.ktor.server.application.Application
@@ -14,6 +15,7 @@ import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.request.receive
 import io.ktor.server.response.respond
+import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.route
@@ -69,6 +71,20 @@ fun Application.run21RestApi(runtime: RestApiRuntime = RestApiRuntimeFactory.for
             )
         }
 
+        get("/openapi.yaml") {
+            call.respondText(
+                text = openApiYaml(),
+                contentType = ContentType.parse("application/yaml"),
+            )
+        }
+
+        get("/docs") {
+            call.respondText(
+                text = swaggerUiHtml(),
+                contentType = ContentType.Text.Html,
+            )
+        }
+
         route("/v1") {
             get("/tools") {
                 call.respond(runtime.toolRegistry.all().map { it.toDto() })
@@ -111,3 +127,31 @@ fun Application.run21RestApi(runtime: RestApiRuntime = RestApiRuntimeFactory.for
  */
 private suspend fun ApplicationCall.receiveExecutionRequest(): ExecutionRequestDto =
     receive()
+
+private fun openApiYaml(): String =
+    requireNotNull(Thread.currentThread().contextClassLoader.getResource("openapi.yaml")) {
+        "OpenAPI resource openapi.yaml was not found."
+    }.readText()
+
+private fun swaggerUiHtml(): String = """
+    <!doctype html>
+    <html lang="en">
+    <head>
+      <meta charset="utf-8">
+      <title>Run21AI REST API</title>
+      <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css">
+    </head>
+    <body>
+      <div id="swagger-ui"></div>
+      <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+      <script>
+        window.onload = function() {
+          window.ui = SwaggerUIBundle({
+            url: "/openapi.yaml",
+            dom_id: "#swagger-ui"
+          });
+        };
+      </script>
+    </body>
+    </html>
+""".trimIndent()
