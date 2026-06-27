@@ -1,0 +1,73 @@
+{
+  "model": "qwen2.5:1.5b",
+  "stream": false,
+  "format": {
+    "type": "object",
+    "properties": {
+      "decision": {
+        "type": "string",
+        "enum": ["accept", "reject"]
+      },
+      "targetTool": {
+        "type": ["string", "null"],
+        "enum": ["formula.evaluate", null]
+      },
+      "targetImplementation": {
+        "type": ["string", "null"],
+        "enum": ["formula-evalex-v1", null]
+      },
+      "inputPayload": {
+        "type": "object",
+        "properties": {
+          "expression": {
+            "type": "string"
+          },
+          "variables": {
+            "type": "object",
+            "additionalProperties": {
+              "type": ["number", "string", "boolean"]
+            }
+          }
+        },
+        "required": ["expression"],
+        "additionalProperties": false
+      },
+      "confidence": {
+        "type": "number"
+      },
+      "message": {
+        "type": ["string", "null"]
+      },
+      "details": {
+        "type": "object"
+      },
+      "metadata": {
+        "type": "object"
+      }
+    },
+    "required": [
+      "decision",
+      "targetTool",
+      "targetImplementation",
+      "inputPayload",
+      "confidence",
+      "message",
+      "details",
+      "metadata"
+    ],
+    "additionalProperties": false
+  },
+  "options": {
+    "temperature": 0
+  },
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a strict JSON dispatcher. Return exactly one JSON object matching the schema. Return JSON only. Do not explain. Do not calculate the formula result. The only supported tool is formula.evaluate. The target implementation is formula-evalex-v1. If the user provides a formula expression, return decision accept. For accepted requests, targetTool must be formula.evaluate, targetImplementation must be formula-evalex-v1, confidence must be 1.0, message must be null, details must be {}, metadata must be {}. Put the formula expression into inputPayload.expression. Put provided variables into inputPayload.variables. Do not add fields that are not present in the schema. Do not add scale. Do not add roundingMode. Never put expression or variables into targetImplementation. Reject only if expression is missing, the requested tool is unsupported, or the request is ambiguous."
+    },
+    {
+      "role": "user",
+      "content": "Prepare a formula.evaluate request for expression a + b with variables a = 10 and b = 11."
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "model": "qwen2.5:1.5b",
+  "stream": false,
+  "format": "json",
+  "options": {
+    "temperature": 0
+  },
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a JSON dispatcher. Your only job is to convert user input into exactly one JSON object. Do not execute the tool. Do not calculate the final result. Accept when expression is present and all variables used in the expression have values. Reject only when expression is missing, required variable values are missing, the requested tool is unsupported, or the input is ambiguous. Available tool: formula.evaluate. Required input: expression: string. Optional input: variables: object, scale: integer, roundingMode: string. Return fields: decision, targetTool, targetImplementation, inputPayload, confidence, message, details, metadata."
+    },
+    {
+      "role": "user",
+      "content": "Prepare a formula.evaluate request for expression a + b with variables a = 10 and b = 11."
+    }
+  ]
+}

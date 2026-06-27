@@ -2,23 +2,34 @@ package ai.run21.core
 
 import ai.run21.core.dispatch.Dispatcher
 import ai.run21.core.dispatch.OrderedDispatcherChain
+import ai.run21.core.dispatch.ToolRequestValidationResult
+import ai.run21.core.dispatch.ToolRequestValidator
 import ai.run21.core.execution.DefaultToolExecutionService
 import ai.run21.core.execution.DefaultToolExecutor
 import ai.run21.core.execution.ToolCalls
+import ai.run21.core.execution.ToolImplementation
 import ai.run21.core.model.DispatchAccepted
 import ai.run21.core.model.DispatchContext
 import ai.run21.core.model.DispatchInput
+import ai.run21.core.model.DispatchRejected
 import ai.run21.core.model.DispatcherCode
 import ai.run21.core.model.ExecutionSourceType
 import ai.run21.core.model.ExecutionStatus
 import ai.run21.core.model.ImplementationCode
+import ai.run21.core.model.RawDispatchInput
 import ai.run21.core.model.ToolCode
+import ai.run21.core.model.ToolError
 import ai.run21.core.model.ToolErrorCode
+import ai.run21.core.model.ToolExecutionOutput
+import ai.run21.core.model.ToolImplementationDescriptor
+import ai.run21.core.model.ToolImplementationType
+import ai.run21.core.model.ToolRequest
 import ai.run21.core.registry.InMemoryToolExecutorRegistry
 import ai.run21.core.registry.InMemoryToolImplementationRegistry
 import ai.run21.core.registry.InMemoryToolRegistry
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 
 /**
@@ -211,5 +222,172 @@ class ToolExecutionContractTest {
         assertEquals(ExecutionStatus.SUCCEEDED, result.status)
         assertEquals(mapOf("second" to mapOf("value" to 21)), result.outputPayload)
         assertEquals("second", result.auditMetadata.implementation?.implementationCode?.value)
+    }
+
+    @Test
+    fun `missing implementation returns IMPLEMENTATION_NOT_REGISTERED`() {
+        val descriptor = testToolDescriptor()
+        val service = DefaultToolExecutionService(
+            dispatcherChain = CoreDefaults.structuredDirectDispatcherChain(),
+            toolRegistry = InMemoryToolRegistry(listOf(descriptor)),
+            executorRegistry = InMemoryToolExecutorRegistry(
+                listOf(DefaultToolExecutor(descriptor, InMemoryToolImplementationRegistry())),
+            ),
+        )
+
+        val result = runSuspend {
+            ToolCalls.execute(service) {
+                tool(testToolCode())
+                actor(testActor())
+                source(testSource())
+                input("value", 21)
+            }
+        }
+
+        assertEquals(ExecutionStatus.FAILED, result.status)
+        assertEquals(ToolErrorCode.IMPLEMENTATION_NOT_REGISTERED, result.error?.code)
+        assertEquals(testToolCode().value, result.error?.details?.get("toolCode"))
+        assertEquals(null, result.error?.details?.get("implementationCode"))
+        assertEquals(null, result.auditMetadata.implementation)
+    }
+
+    @Test
+    fun `executor rejects request for a different target tool`() {
+        val descriptor = testToolDescriptor()
+        val executor = DefaultToolExecutor(
+            descriptor = descriptor,
+            implementationRegistry = InMemoryToolImplementationRegistry(listOf(EchoImplementation())),
+        )
+
+        val result = runSuspend {
+            executor.execute(testToolRequest(code = ToolCode("other-tool")))
+        }
+
+        assertEquals(ExecutionStatus.FAILED, result.status)
+        assertEquals(ToolErrorCode.INVALID_TOOL_REQUEST, result.error?.code)
+        assertEquals(testToolCode().value, result.error?.details?.get("expectedTool"))
+        assertEquals("other-tool", result.error?.details?.get("actualTool"))
+        assertEquals(testToolCode(), result.auditMetadata.tool.code)
+        assertEquals(null, result.auditMetadata.implementation)
+    }
+
+    @Test
+    fun `executor validator failure returns failed ToolResult before implementation resolution`() {
+        val descriptor = testToolDescriptor()
+        val validator = ToolRequestValidator {
+            ToolRequestValidationResult.Invalid(
+                ToolError(
+                    code = ToolErrorCode.INVALID_TOOL_REQUEST,
+                    message = "Rejected by executor-level validator.",
+                ),
+            )
+        }
+        val executor = DefaultToolExecutor(
+            descriptor = descriptor,
+            implementationRegistry = InMemoryToolImplementationRegistry(listOf(EchoImplementation())),
+            validator = validator,
+        )
+
+        val result = runSuspend {
+            executor.execute(testToolRequest())
+        }
+
+        assertEquals(ExecutionStatus.FAILED, result.status)
+        assertEquals(ToolErrorCode.INVALID_TOOL_REQUEST, result.error?.code)
+        assertEquals("Rejected by executor-level validator.", result.error?.message)
+        assertEquals(null, result.auditMetadata.implementation)
+    }
+
+    @Test
+    fun `implementation exception currently escapes executor`() {
+        val descriptor = testToolDescriptor()
+        val executor = DefaultToolExecutor(
+            descriptor = descriptor,
+            implementationRegistry = InMemoryToolImplementationRegistry(listOf(ThrowingImplementation())),
+        )
+
+        val error = assertFailsWith<IllegalStateException> {
+            runSuspend { executor.execute(testToolRequest()) }
+        }
+
+        assertEquals("Implementation failed in test.", error.message)
+    }
+
+    @Test
+    fun `dispatcher exception currently escapes dispatcher chain`() {
+        val chain = OrderedDispatcherChain(
+            listOf(
+                object : Dispatcher {
+                    override val code = DispatcherCode("throwing-dispatcher")
+
+                    override suspend fun dispatch(input: DispatchInput, context: DispatchContext): DispatchAccepted {
+                        error("Dispatcher failed in test.")
+                    }
+                },
+            ),
+        )
+
+        val error = assertFailsWith<IllegalStateException> {
+            runSuspend {
+                chain.dispatch(
+                    RawDispatchInput(
+                        payload = mapOf("prompt" to "test"),
+                        actor = testActor(),
+                        source = testSource(),
+                    ),
+                )
+            }
+        }
+
+        assertEquals("Dispatcher failed in test.", error.message)
+    }
+
+    @Test
+    fun `dispatcher rejection is converted into rejected ToolResult by execution service`() {
+        val rejection = ToolError(
+            code = ToolErrorCode.DISPATCH_REJECTED,
+            message = "Rejected by normal dispatcher.",
+        )
+        val service = DefaultToolExecutionService(
+            dispatcherChain = OrderedDispatcherChain(
+                listOf(
+                    object : Dispatcher {
+                        override val code = DispatcherCode("rejecting-dispatcher")
+
+                        override suspend fun dispatch(input: DispatchInput, context: DispatchContext): DispatchRejected =
+                            DispatchRejected(rejection)
+                    },
+                ),
+            ),
+            toolRegistry = InMemoryToolRegistry(),
+            executorRegistry = InMemoryToolExecutorRegistry(),
+        )
+
+        val result = runSuspend {
+            ToolCalls.dispatch(service) {
+                prompt("reject this")
+                actor(testActor())
+                source(testSource())
+                correlationId("normal-rejection")
+            }
+        }
+
+        assertEquals(ExecutionStatus.REJECTED, result.status)
+        assertEquals(ToolErrorCode.DISPATCH_REJECTED, result.error?.code)
+        assertEquals("normal-rejection", result.auditMetadata.correlation.correlationId)
+        assertEquals("rejecting-dispatcher", result.auditMetadata.dispatcherTrace.steps.single().dispatcherCode.value)
+        assertEquals(ToolCode("unknown"), result.auditMetadata.tool.code)
+    }
+}
+
+private class ThrowingImplementation : ToolImplementation {
+    override val descriptor = ToolImplementationDescriptor(
+        implementationCode = ImplementationCode("throwing-implementation"),
+        toolCode = testToolCode(),
+        type = ToolImplementationType.JVM_CLASS,
+    )
+
+    override suspend fun execute(request: ToolRequest): ToolExecutionOutput {
+        throw IllegalStateException("Implementation failed in test.")
     }
 }

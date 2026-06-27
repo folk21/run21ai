@@ -13,6 +13,8 @@ application {
 
 dependencies {
     implementation(project(":core"))
+    implementation(project(":dispatchers:llm"))
+    implementation(project(":dispatchers:llm-ollama"))
     implementation(project(":runtime:local"))
     implementation(project(":tools:formula"))
 

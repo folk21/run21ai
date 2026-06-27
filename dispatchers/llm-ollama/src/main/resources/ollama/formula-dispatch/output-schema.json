@@ -1,0 +1,122 @@
+{
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "decision": {
+          "type": "string",
+          "enum": ["accept"]
+        },
+        "targetTool": {
+          "type": "string",
+          "enum": ["formula.evaluate"]
+        },
+        "targetImplementation": {
+          "type": "string",
+          "enum": ["formula-evalex-v1"]
+        },
+        "inputPayload": {
+          "type": "object",
+          "properties": {
+            "expression": {
+              "type": "string"
+            },
+            "variables": {
+              "type": "object",
+              "additionalProperties": {
+                "type": ["number", "string", "boolean"]
+              }
+            }
+          },
+          "required": ["expression", "variables"],
+          "additionalProperties": false
+        },
+        "confidence": {
+          "type": "number"
+        },
+        "message": {
+          "type": ["string", "null"]
+        },
+        "details": {
+          "type": "object"
+        },
+        "metadata": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "decision",
+        "targetTool",
+        "targetImplementation",
+        "inputPayload",
+        "confidence",
+        "message",
+        "details",
+        "metadata"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "decision": {
+          "type": "string",
+          "enum": ["reject"]
+        },
+        "targetTool": {
+          "type": "null"
+        },
+        "targetImplementation": {
+          "type": "null"
+        },
+        "inputPayload": {
+          "type": "object"
+        },
+        "confidence": {
+          "type": "number",
+          "enum": [0.0]
+        },
+        "message": {
+          "type": ["string", "null"]
+        },
+        "details": {
+          "type": "object",
+          "properties": {
+            "reason": {
+              "type": "string",
+              "enum": [
+                "missing_variables",
+                "unsupported_tool",
+                "missing_expression",
+                "ambiguous_request",
+                "invalid_model_response"
+              ]
+            },
+            "missingVariables": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": ["reason", "missingVariables"],
+          "additionalProperties": false
+        },
+        "metadata": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "decision",
+        "targetTool",
+        "targetImplementation",
+        "inputPayload",
+        "confidence",
+        "message",
+        "details",
+        "metadata"
+      ],
+      "additionalProperties": false
+    }
+  ]
+}

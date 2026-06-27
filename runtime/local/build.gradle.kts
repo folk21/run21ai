@@ -11,6 +11,7 @@ dependencies {
     api(project(":core"))
     implementation(project(":tools:formula"))
 
+    testImplementation(project(":test-support"))
     testImplementation(kotlin("test"))
     testImplementation(kotlin("test-junit5"))
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")

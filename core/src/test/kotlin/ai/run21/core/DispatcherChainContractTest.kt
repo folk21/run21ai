@@ -6,6 +6,7 @@ import ai.run21.core.dispatch.ToolRequestValidationResult
 import ai.run21.core.dispatch.ToolRequestValidator
 import ai.run21.core.model.DispatchAccepted
 import ai.run21.core.model.DispatchContext
+import ai.run21.core.model.DispatchEnriched
 import ai.run21.core.model.DispatchInput
 import ai.run21.core.model.DispatchPassed
 import ai.run21.core.model.DispatchRejected
@@ -14,10 +15,12 @@ import ai.run21.core.model.DispatcherTraceStep
 import ai.run21.core.model.DispatchOutcomeType
 import ai.run21.core.model.ExecutionStatus
 import ai.run21.core.model.RawDispatchInput
+import ai.run21.core.model.DispatcherChainResult
 import ai.run21.core.model.ToolError
 import ai.run21.core.model.ToolErrorCode
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 
 /**
  * Verifies ordered dispatcher-chain semantics, including accepted requests, enriched input,
@@ -106,6 +109,163 @@ class DispatcherChainContractTest {
     }
 
     @Test
+    fun `dispatcher chain passes enriched input to later dispatchers`() {
+        val calls = mutableListOf<String>()
+        val enricher = object : Dispatcher {
+            override val code = DispatcherCode("enricher")
+
+            override suspend fun dispatch(input: DispatchInput, context: DispatchContext): DispatchEnriched {
+                calls += code.value
+                return DispatchEnriched(
+                    input = RawDispatchInput(
+                        payload = mapOf("prompt" to "enriched prompt"),
+                        actor = input.actor,
+                        source = input.source,
+                        correlation = input.correlation,
+                        attributes = input.attributes + ("value" to 42),
+                    ),
+                )
+            }
+        }
+        val accepting = object : Dispatcher {
+            override val code = DispatcherCode("accepting")
+
+            override suspend fun dispatch(input: DispatchInput, context: DispatchContext): DispatchAccepted {
+                calls += code.value
+                assertEquals(42, input.attributes["value"])
+                assertEquals(mapOf("prompt" to "enriched prompt"), (input as RawDispatchInput).payload)
+                return DispatchAccepted(
+                    testToolRequest().copy(
+                        actor = input.actor,
+                        source = input.source,
+                        correlation = input.correlation,
+                        inputPayload = mapOf("value" to input.attributes["value"]),
+                    ),
+                )
+            }
+        }
+        val input = RawDispatchInput(
+            payload = mapOf("prompt" to "original prompt"),
+            actor = testActor(),
+            source = testSource(),
+        )
+
+        val result = runSuspend { OrderedDispatcherChain(listOf(enricher, accepting)).dispatch(input) }
+
+        assertEquals(ExecutionStatus.ACCEPTED, result.status)
+        assertEquals(listOf("enricher", "accepting"), calls)
+        assertEquals(listOf("enricher", "accepting"), result.trace.steps.map { it.dispatcherCode.value })
+        assertEquals(mapOf("value" to 42), result.request?.inputPayload)
+    }
+
+    @Test
+    fun `dispatcher chain preserves multi-step trace details across pass enrich and accept`() {
+        val input = RawDispatchInput(
+            payload = mapOf("prompt" to "original prompt"),
+            actor = testActor(),
+            source = testSource(),
+            correlation = testToolRequest().correlation.copy(correlationId = "trace-correlation"),
+        )
+        val passing = object : Dispatcher {
+            override val code = DispatcherCode("passing")
+
+            override suspend fun dispatch(input: DispatchInput, context: DispatchContext): DispatchPassed =
+                DispatchPassed(
+                    traceStep = DispatcherTraceStep(
+                        dispatcherCode = code,
+                        outcome = DispatchOutcomeType.PASSED,
+                        confidence = 0.25,
+                        inputSummary = "Inspected original input.",
+                        outputSummary = "Not handled by passing dispatcher.",
+                        correlationId = context.correlation.correlationId,
+                        metadata = mapOf("stage" to "pass"),
+                    ),
+                )
+        }
+        val enriching = object : Dispatcher {
+            override val code = DispatcherCode("enriching")
+
+            override suspend fun dispatch(input: DispatchInput, context: DispatchContext): DispatchEnriched =
+                DispatchEnriched(
+                    input = RawDispatchInput(
+                        payload = mapOf("prompt" to "enriched prompt"),
+                        actor = input.actor,
+                        source = input.source,
+                        correlation = input.correlation,
+                        attributes = input.attributes + ("value" to 84),
+                    ),
+                    traceStep = DispatcherTraceStep(
+                        dispatcherCode = code,
+                        outcome = DispatchOutcomeType.ENRICHED,
+                        confidence = 0.75,
+                        inputSummary = "Original prompt needed enrichment.",
+                        outputSummary = "Added value attribute.",
+                        correlationId = context.correlation.correlationId,
+                        metadata = mapOf("stage" to "enrich", "added" to "value"),
+                    ),
+                )
+        }
+        val accepting = object : Dispatcher {
+            override val code = DispatcherCode("accepting")
+
+            override suspend fun dispatch(input: DispatchInput, context: DispatchContext): DispatchAccepted =
+                DispatchAccepted(
+                    request = testToolRequest().copy(
+                        actor = input.actor,
+                        source = input.source,
+                        correlation = input.correlation,
+                        inputPayload = mapOf("value" to input.attributes["value"]),
+                    ),
+                    traceStep = DispatcherTraceStep(
+                        dispatcherCode = code,
+                        outcome = DispatchOutcomeType.ACCEPTED,
+                        confidence = 0.95,
+                        inputSummary = "Received enriched input.",
+                        outputSummary = "Prepared test-tool request.",
+                        correlationId = context.correlation.correlationId,
+                        metadata = mapOf("stage" to "accept", "targetTool" to testToolCode().value),
+                    ),
+                )
+        }
+
+        val result = runSuspend {
+            OrderedDispatcherChain(listOf(passing, enriching, accepting)).dispatch(input)
+        }
+
+        assertEquals(ExecutionStatus.ACCEPTED, result.status)
+        assertEquals(mapOf("value" to 84), result.request?.inputPayload)
+        assertEquals("trace-correlation", result.request?.correlation?.correlationId)
+        assertEquals(
+            listOf("passing", "enriching", "accepting"),
+            result.trace.steps.map { it.dispatcherCode.value },
+        )
+        assertEquals(
+            listOf(DispatchOutcomeType.PASSED, DispatchOutcomeType.ENRICHED, DispatchOutcomeType.ACCEPTED),
+            result.trace.steps.map { it.outcome },
+        )
+        assertEquals(listOf(0.25, 0.75, 0.95), result.trace.steps.map { it.confidence })
+        assertEquals(
+            listOf("Inspected original input.", "Original prompt needed enrichment.", "Received enriched input."),
+            result.trace.steps.map { it.inputSummary },
+        )
+        assertEquals(
+            listOf(
+                "Not handled by passing dispatcher.",
+                "Added value attribute.",
+                "Prepared test-tool request.",
+            ),
+            result.trace.steps.map { it.outputSummary },
+        )
+        assertEquals(
+            listOf("trace-correlation", "trace-correlation", "trace-correlation"),
+            result.trace.steps.map { it.correlationId },
+        )
+        assertEquals("pass", result.trace.steps[0].metadata["stage"])
+        assertEquals("value", result.trace.steps[1].metadata["added"])
+        assertEquals(testToolCode().value, result.trace.steps[2].metadata["targetTool"])
+    }
+
+    @Test
     fun `TEST-DISP-004 invalid dispatcher output is rejected before execution`() {
         // Use a validator that rejects every accepted request to verify pre-execution validation.
         val validator = ToolRequestValidator {
@@ -143,5 +303,32 @@ class DispatcherChainContractTest {
 
         assertEquals(ExecutionStatus.ACCEPTED, result.status)
         assertEquals(testToolCode(), result.request?.targetTool)
+    }
+
+    @Test
+    fun `dispatcher chain result rejects malformed request and error combinations`() {
+        val error = ToolError(ToolErrorCode.DISPATCH_REJECTED, "Rejected in malformed result test.")
+
+        assertFailsWith<IllegalArgumentException> {
+            DispatcherChainResult(
+                status = ExecutionStatus.ACCEPTED,
+                request = testToolRequest(),
+                error = error,
+            )
+        }
+
+        assertFailsWith<IllegalArgumentException> {
+            DispatcherChainResult(status = ExecutionStatus.REJECTED)
+        }
+    }
+
+    @Test
+    fun `dispatcher chain result rejects unsupported statuses`() {
+        assertFailsWith<IllegalArgumentException> {
+            DispatcherChainResult(
+                status = ExecutionStatus.RUNNING,
+                request = testToolRequest(),
+            )
+        }
     }
 }

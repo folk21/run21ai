@@ -2,11 +2,16 @@ package ai.run21.runtime.restapi
 
 import ai.run21.core.CoreDefaults
 import ai.run21.core.dispatch.DispatcherChain
+import ai.run21.core.dispatch.OrderedDispatcherChain
+import ai.run21.core.dispatch.PassThroughDispatcher
 import ai.run21.core.execution.DefaultToolExecutionService
 import ai.run21.core.execution.ToolExecutionService
 import ai.run21.core.registry.InMemoryToolExecutorRegistry
 import ai.run21.core.registry.InMemoryToolRegistry
 import ai.run21.core.registry.ToolRegistry
+import ai.run21.dispatchers.llm.LlmDispatcher
+import ai.run21.dispatchers.llm.ollama.OllamaLlmConfigFactory
+import ai.run21.dispatchers.llm.ollama.OllamaLlmDispatchClient
 import ai.run21.runtime.local.LocalRuntimeToolRegistration
 
 /**
@@ -32,6 +37,20 @@ data class RestApiRuntime(
  */
 object RestApiRuntimeFactory {
     /**
+     * Creates a REST runtime from environment configuration.
+     *
+     * `RUN21_REST_PROFILE=ollama` enables prompt dispatch through a local Ollama server. The
+     * `llm-ollama` alias is accepted for consistency with the Gradle module name. Any other value
+     * keeps the deterministic formula-only profile.
+     */
+    fun fromEnvironment(
+        env: (String) -> String? = System::getenv,
+    ): RestApiRuntime = when (env("RUN21_REST_PROFILE")?.trim()?.lowercase()) {
+        "ollama", "llm-ollama" -> formulaWithOllamaDispatcher(env)
+        else -> formulaOnly()
+    }
+
+    /**
      * Creates a formula-only REST runtime backed by in-memory registries.
      *
      * This is the first REST profile. It proves Ktor can expose the existing core pipeline without
@@ -40,6 +59,39 @@ object RestApiRuntimeFactory {
     fun formulaOnly(): RestApiRuntime {
         val registration = LocalRuntimeToolRegistration.formula()
         val dispatcherChain = CoreDefaults.structuredDirectDispatcherChain()
+        val toolRegistry = InMemoryToolRegistry(registration.tools)
+        val executorRegistry = InMemoryToolExecutorRegistry(registration.executors)
+        val service = DefaultToolExecutionService(
+            dispatcherChain = dispatcherChain,
+            toolRegistry = toolRegistry,
+            executorRegistry = executorRegistry,
+        )
+
+        return RestApiRuntime(
+            service = service,
+            dispatcherChain = dispatcherChain,
+            toolRegistry = toolRegistry,
+        )
+    }
+
+    /**
+     * Creates a formula runtime with pass-through structured dispatch and Ollama-backed raw
+     * dispatch for prompt-like requests.
+     */
+    fun formulaWithOllamaDispatcher(
+        env: (String) -> String? = System::getenv,
+    ): RestApiRuntime {
+        val registration = LocalRuntimeToolRegistration.formula()
+        val dispatcherChain = OrderedDispatcherChain(
+            listOf(
+                PassThroughDispatcher(),
+                LlmDispatcher(
+                    client = OllamaLlmDispatchClient(
+                        config = OllamaLlmConfigFactory.fromEnvironment(env),
+                    ),
+                ),
+            ),
+        )
         val toolRegistry = InMemoryToolRegistry(registration.tools)
         val executorRegistry = InMemoryToolExecutorRegistry(registration.executors)
         val service = DefaultToolExecutionService(

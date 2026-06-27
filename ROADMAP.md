@@ -8,7 +8,7 @@
 * [Stage 4: First Concrete Tool Module - in_progress](#stage-4-first-concrete-tool-module)
 * [Stage 5: Tool Registration Improvements - planned](#stage-5-tool-registration-improvements)
 * [Stage 6: CLI Client - in_progress](#stage-6-cli-client)
-* [Stage 7: LLM Dispatcher - planned](#stage-7-llm-dispatcher)
+* [Stage 7: LLM Dispatcher - in_progress](#stage-7-llm-dispatcher)
 * [Stage 8: Additional Tool Implementations - planned](#stage-8-additional-tool-implementations)
 * [Stage 9: System Tests - in_progress](#stage-9-system-tests)
 
@@ -33,6 +33,11 @@ Exit criteria:
 * Dispatcher chain behavior is documented.
 * Tool execution terms are consistent.
 * README explains the core execution model.
+
+Remaining work:
+
+* No planned feature work.
+* Keep documentation aligned when public terminology, runtime behavior, or API contracts change.
 
 ## Stage 2: Core Module
 
@@ -72,6 +77,13 @@ Exit criteria:
 * Tool results contain audit metadata.
 * README examples match the recommended API.
 
+Remaining work:
+
+* Improve error diagnostics and exception normalization in the execution path.
+* Add more focused unit and contract tests for validation, registries, status behavior, and audit metadata.
+* Clarify which capability statuses are informational and which should block execution.
+* Keep core APIs stable while runtime, REST, CLI, and tool modules put pressure on the model.
+
 ## Stage 3: First Runtime Skeleton
 
 Status: in_progress
@@ -105,6 +117,13 @@ Exit criteria:
 * Runtime code depends on `core`; `core` does not depend on runtime code.
 * REST endpoints expose runtime state and tool execution without changing core semantics.
 
+Remaining work:
+
+* Add a raw/prompt dispatcher profile so raw requests can resolve into ToolRequest.
+* Improve runtime composition so additional tools can be registered without duplicating wiring code.
+* Decide how runtime profiles should be selected for local, REST, CLI, tests, and future deployment.
+* Keep OpenAPI, REST tests, and README examples synchronized with implemented endpoints.
+
 ## Stage 4: First Concrete Tool Module
 
 Status: in_progress
@@ -134,6 +153,13 @@ Exit criteria:
 * Version and audit metadata are recorded in the result.
 * No tool-specific execution path is introduced.
 
+Remaining work:
+
+* Broaden formula validation and diagnostics for invalid expressions, invalid variables, and engine failures.
+* Add more edge-case tests for numeric behavior, rounding, unsupported result types, and malformed payloads.
+* Decide the public contract for formula-specific error details.
+* Keep the formula module free of runtime, REST, CLI, and dispatcher concerns.
+
 ## Stage 5: Tool Registration Improvements
 
 Status: planned
@@ -150,6 +176,13 @@ Exit criteria:
 * Runtime can register tools, executors, implementations, and dispatcher chains explicitly.
 * Simple declarative tool registration is documented.
 * Registration does not change core semantics.
+
+Remaining work:
+
+* Define a reusable registration model for multiple tools and implementations.
+* Keep code-based registration as the safe baseline.
+* Explore simple declarative registration only for low-risk tool metadata.
+* Document which tool types must remain code-registered for security or operational reasons.
 
 ## Stage 6: CLI Client
 
@@ -176,9 +209,16 @@ Exit criteria:
 * CLI can submit prompt-like input through a dispatcher chain.
 * CLI can display tool results and structured errors.
 
+Remaining work:
+
+* Verify and harden the Rust CLI once Cargo is available in the local environment.
+* Add friendlier CLI output modes if raw JSON becomes hard to scan.
+* Add more CLI contract tests for error responses and invalid command arguments.
+* Keep CLI commands aligned with REST API and OpenAPI changes.
+
 ## Stage 7: LLM Dispatcher
 
-Status: planned
+Status: in_progress
 
 Goals:
 
@@ -188,12 +228,31 @@ Goals:
 * Keep tool execution deterministic.
 * Keep the LLM limited to request preparation.
 
+Current scope:
+
+* `:dispatchers:llm` module.
+* `:dispatchers:llm-ollama` module.
+* Provider-neutral `LlmDispatchClient` abstraction.
+* `LlmDispatcher` implementation of the core `Dispatcher` contract.
+* Deterministic fake-client tests without a real LLM, network access, or credentials.
+* Structured accepted/rejected LLM-style responses mapped into core dispatcher outcomes.
+* Ollama adapter configured by environment variables.
+* Optional REST runtime profile enabled with `RUN21_REST_PROFILE=ollama`.
+
 Exit criteria:
 
 * Unstructured input can be converted into a valid `ToolRequest`.
 * Invalid LLM output is rejected before tool execution.
 * LLM dispatcher does not perform tool work.
 * Tool execution still uses `ToolExecutor` and `ToolImplementation`.
+
+Remaining work:
+
+* Add stricter structured-output schema validation for provider responses.
+* Add retry behavior for invalid or ambiguous model output.
+* Add optional integration/system tests that run only when a real Ollama server is available.
+* Generalize prompt construction beyond the current formula-oriented tool description.
+* Keep LLM dispatch outside `core` and outside tool implementation work.
 
 ## Stage 8: Additional Tool Implementations
 
@@ -212,6 +271,13 @@ Exit criteria:
 * Each tool returns structured output or structured errors.
 * Audit metadata remains consistent across tool families.
 
+Remaining work:
+
+* Choose the next tool family based on the strongest runtime pressure.
+* Add one JVM/custom tool and one adapter-style tool before broadening abstractions.
+* Add tool-specific validation, execution tests, and REST/CLI smoke coverage.
+* Confirm that new tools do not require core semantic changes.
+
 ## Stage 9: System Tests
 
 Status: in_progress
@@ -229,3 +295,10 @@ Exit criteria:
 * System tests can run against a locally started REST backend.
 * CLI smoke tests can run against a built `run21ctl` binary.
 * Prompt-resolution tests become active when a raw/prompt dispatcher is implemented.
+
+Remaining work:
+
+* Run the full system suite in an environment with pytest, Cargo, and the REST backend available.
+* Convert prompt-resolution `xfail` tests into normal tests after a raw dispatcher is registered.
+* Add negative-path system tests for unknown tools, invalid payloads, and CLI error handling.
+* Decide whether system tests should become part of CI or remain an explicit local verification suite.

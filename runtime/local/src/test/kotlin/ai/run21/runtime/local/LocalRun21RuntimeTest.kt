@@ -1,15 +1,11 @@
 package ai.run21.runtime.local
 
-import ai.run21.core.model.ActorReference
-import ai.run21.core.model.ActorType
-import ai.run21.core.model.ExecutionSource
-import ai.run21.core.model.ExecutionSourceType
 import ai.run21.core.model.ExecutionStatus
+import ai.run21.testsupport.runSuspend
+import ai.run21.testsupport.testActor
+import ai.run21.testsupport.testSource
 import ai.run21.tools.formula.FormulaTool
 import java.math.BigDecimal
-import kotlin.coroutines.Continuation
-import kotlin.coroutines.EmptyCoroutineContext
-import kotlin.coroutines.startCoroutine
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -59,29 +55,4 @@ class LocalRun21RuntimeTest {
         assertEquals("pass-through", result.auditMetadata.dispatcherTrace.steps.single().dispatcherCode.value)
         assertEquals("local-runtime-test", result.auditMetadata.correlation.correlationId)
     }
-}
-
-private fun testActor(): ActorReference = ActorReference(
-    id = "local-runtime-test-actor",
-    type = ActorType.HUMAN,
-    displayName = "Local Runtime Test Actor",
-)
-
-private fun testSource(): ExecutionSource = ExecutionSource(
-    type = ExecutionSourceType.TEST,
-    name = "local-runtime-test",
-)
-
-private fun <T> runSuspend(block: suspend () -> T): T {
-    var outcome: Result<T>? = null
-    block.startCoroutine(
-        object : Continuation<T> {
-            override val context = EmptyCoroutineContext
-
-            override fun resumeWith(result: Result<T>) {
-                outcome = result
-            }
-        },
-    )
-    return outcome?.getOrThrow() ?: error("Suspend block did not complete synchronously.")
 }

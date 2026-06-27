@@ -15,6 +15,6 @@ fun main() {
         port = System.getenv("RUN21_REST_PORT")?.toIntOrNull() ?: 8080,
         host = System.getenv("RUN21_REST_HOST") ?: "0.0.0.0",
     ) {
-        run21RestApi()
+        run21RestApi(RestApiRuntimeFactory.fromEnvironment())
     }.start(wait = true)
 }

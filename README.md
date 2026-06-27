@@ -36,6 +36,7 @@ Run21AI is domain-neutral. It can execute formula-oriented tools, document tools
 - [Core Idea](#core-idea)
 - [Execution Modes](#execution-modes)
 - [Runtime Modules](#runtime-modules)
+- [Dispatcher Modules](#dispatcher-modules)
 - [Manual REST API Testing](#manual-rest-api-testing)
 - [Rust CLI Client](#rust-cli-client)
 - [System Tests](#system-tests)
@@ -274,7 +275,7 @@ val result = runtime.execute {
 
 The REST API runtime exposes the local runtime through Ktor. It is a runtime module, so Ktor dependencies, HTTP DTOs, JSON mapping, and endpoint routing stay outside `core`.
 
-Run the server locally:
+Run the server locally from the project root:
 
 ```bash
 ./gradlew :runtime:rest-api:run
@@ -338,9 +339,57 @@ http://127.0.0.1:8080/openapi.yaml
 
 `POST /v1/tool-requests/resolve` runs only the dispatcher chain and returns a prepared `ToolRequest` or a structured dispatch error. With the current formula-only runtime profile, prompt-like requests are rejected because no raw-input dispatcher is registered yet.
 
+## Dispatcher Modules
+
+### `:dispatchers:llm`
+
+The LLM dispatcher module provides a provider-neutral dispatcher for prompt-like input. It depends
+on `:core` and implements the core `Dispatcher` contract. It does not include provider-specific
+HTTP code.
+
+The current implementation uses an injected `LlmDispatchClient` interface:
+
+```text
+RawDispatchInput
+  -> LlmDispatcher
+  -> LlmDispatchClient
+  -> LlmDispatchResponse
+  -> ToolRequest / DispatchRejected
+```
+
+Tests use deterministic fake clients, so this module does not require network access, API keys, or
+model availability. Provider adapters can be added without changing `core`.
+
+### `:dispatchers:llm-ollama`
+
+The Ollama adapter module connects the provider-neutral LLM dispatcher to an Ollama-compatible
+`/api/chat` endpoint. It uses Java HttpClient, Jackson, StringTemplate-rendered prompt resources,
+and Ollama structured output, and it remains outside `core`.
+
+The adapter asks the model to return dispatcher JSON only, then validates and normalizes the model
+response before it reaches the provider-neutral dispatcher mapper. The model may select a target
+tool, prepare input payload, enrich metadata, or reject ambiguous input. It must not execute tools
+or calculate final results.
+
+Configuration is environment-driven:
+
+```text
+RUN21_LLM_BASE_URL=http://localhost:11434
+RUN21_LLM_MODEL=<installed-ollama-model>
+RUN21_LLM_TIMEOUT_MS=30000
+RUN21_LLM_TEMPERATURE=0.0
+```
+
+`RUN21_LLM_MODEL` is required. Run21AI does not choose a default model because model availability
+depends on the local or remote Ollama installation.
+
+Unit tests for this module use a fake transport and do not require Ollama to be running.
+
 ## Manual REST API Testing
 
-Start the backend from the project root:
+Run the commands in this section from the project root unless noted.
+
+Start the backend:
 
 ```bash
 ./gradlew :runtime:rest-api:run
@@ -356,6 +405,42 @@ Use another port when needed:
 
 ```bash
 RUN21_REST_PORT=9090 ./gradlew :runtime:rest-api:run
+```
+
+The default REST runtime profile is formula-only. To enable prompt resolution through Ollama, start
+Ollama in one terminal and run the backend with the Ollama profile in another terminal:
+
+```bash
+ollama run <installed-ollama-model>
+```
+
+```bash
+RUN21_REST_PROFILE=ollama \
+RUN21_LLM_BASE_URL=http://localhost:11434 \
+RUN21_LLM_MODEL=<installed-ollama-model> \
+./gradlew :runtime:rest-api:run
+```
+
+Then resolve prompt-like input through the dispatcher chain:
+
+```bash
+curl -X POST http://127.0.0.1:8080/v1/tool-requests/resolve \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "type": "prompt",
+    "prompt": "Prepare a formula request for a + b where a is 10 and b is 11.",
+    "actor": {
+      "id": "manual-user",
+      "type": "human"
+    },
+    "source": {
+      "type": "api",
+      "name": "curl"
+    },
+    "correlation": {
+      "correlationId": "ollama-prompt-resolve-test"
+    }
+  }'
 ```
 
 Basic checks:
@@ -431,6 +516,9 @@ curl -X POST http://127.0.0.1:8080/v1/tool-requests/resolve \
 `clients/run21ctl` is an independent Rust CLI client for the Run21AI REST API. It is not included in
 the Gradle build.
 
+Run the Cargo examples in this section from the project root so the `clients/run21ctl/Cargo.toml`
+manifest path resolves correctly.
+
 Cargo is installed with the Rust toolchain. On macOS or Linux, install it with `rustup`:
 
 ```bash
@@ -482,6 +570,8 @@ See [clients/run21ctl/README.md](clients/run21ctl/README.md) for the full CLI co
 ## System Tests
 
 `tests/system` contains pytest-based external contract tests for the REST API and Rust CLI.
+They verify the runtime from outside the JVM process, so they are closer to black-box system tests
+than unit or integration tests.
 
 The tests exercise the deployed path from outside the process:
 
@@ -503,17 +593,41 @@ source .venv/bin/activate
 python -m pip install -e tests/system
 ```
 
-Run the tests from the repository root:
+Run the pytest examples in this section from the project root after activating the virtual
+environment. The pytest configuration is in `tests/system/pytest.ini`, so the commands pass it
+explicitly with `-c`.
+
+There are two supported ways to run the tests.
+
+Run against a backend that you started yourself:
 
 ```bash
-pytest tests/system
+./gradlew :runtime:rest-api:run
 ```
 
-By default the tests expect the backend at `http://localhost:8080`. They can also start the backend
-for the test session:
+```bash
+python -m pytest -c tests/system/pytest.ini tests/system/tests
+```
+
+In this mode pytest does not start the backend. It waits for `RUN21_BASE_URL`, which defaults to
+`http://localhost:8080`.
+
+Let pytest start and stop the backend for the test session:
 
 ```bash
-RUN21_START_SERVER=true pytest tests/system
+RUN21_START_SERVER=true \
+python -m pytest -c tests/system/pytest.ini tests/system/tests
+```
+
+Use `RUN21_BASE_URL` for the test client and `RUN21_REST_PORT` for the backend when the backend
+listens on a custom port:
+
+```bash
+RUN21_BASE_URL=http://localhost:9090 \
+RUN21_START_SERVER=true \
+RUN21_SERVER_CMD='./gradlew :runtime:rest-api:run' \
+RUN21_REST_PORT=9090 \
+python -m pytest -c tests/system/pytest.ini tests/system/tests
 ```
 
 Useful configuration:
@@ -525,7 +639,13 @@ RUN21_START_SERVER=false
 RUN21_SERVER_CMD=./gradlew :runtime:rest-api:run
 ```
 
-See [tests/system/README.md](tests/system/README.md) for details.
+The current suite checks health and readiness endpoints, tool listing and descriptor schemas,
+successful structured formula execution, structured errors for invalid formula input, CLI smoke
+coverage when `run21ctl` is built, and prompt-resolution contracts that are marked `xfail` until a
+raw/prompt dispatcher is enabled in the REST runtime profile.
+
+See [tests/system/README.md](tests/system/README.md) for the full workflow, configuration details,
+and test-case matrix.
 
 ## Core Package Overview
 
@@ -1011,7 +1131,8 @@ The business output is available in `result.outputPayload["value"]`.
 
 ## Build
 
-The `core` and `tools/formula` modules are Gradle subprojects. In a full project checkout, run:
+The `core` and `tools/formula` modules are Gradle subprojects. In a full project checkout, run from
+the project root:
 
 ```bash
 ./gradlew :core:test
