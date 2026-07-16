@@ -18,6 +18,7 @@
 - [LLM](07-llm/README.md)
 - [Testing](08-testing/README.md)
 - [Generation](09-generation/README.md)
+- [Clients](10-clients/README.md)
 
 ## Main Reading Path
 

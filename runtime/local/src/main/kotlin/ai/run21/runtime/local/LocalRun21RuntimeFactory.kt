@@ -1,6 +1,7 @@
 package ai.run21.runtime.local
 
 import ai.run21.core.CoreDefaults
+import ai.run21.core.CoreToolRuntime
 import ai.run21.core.execution.DefaultToolExecutionService
 import ai.run21.core.registry.InMemoryToolExecutorRegistry
 import ai.run21.core.registry.InMemoryToolImplementationRegistry
@@ -22,6 +23,6 @@ object LocalRun21RuntimeFactory {
             executorRegistry = InMemoryToolExecutorRegistry(registration.executors),
         )
 
-        return LocalRun21Runtime(service)
+        return LocalRun21Runtime(CoreToolRuntime(service))
     }
 }

@@ -22,7 +22,7 @@ class LocalRun21RuntimeTest {
     /**
      * Proves that the formula-only local runtime can execute a structured request end to end.
      *
-     * The call enters through [LocalRun21Runtime.execute], which delegates to `ToolCalls.execute`
+     * The call enters through [LocalRun21Runtime.execute], which delegates to `CoreToolRuntime`
      * and therefore still uses the required core path: structured input, pass-through dispatcher,
      * tool executor, formula implementation, and canonical tool result. The assertions check both
      * business output and audit evidence so the test fails if runtime wiring bypasses the

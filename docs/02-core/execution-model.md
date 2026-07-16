@@ -10,10 +10,14 @@ All execution flows use the same normalized model:
 Input -> DispatcherChain -> ToolRequest -> ToolExecutor -> ToolImplementation -> ToolResult
 ```
 
+`CoreToolRuntime` is the root-level facade for callers that want one visible core entry point. It
+delegates to a configured `ToolExecutionService` and does not introduce a separate execution path.
+
 ## Structured Direct Execution
 
 ```text
 Caller
+  -> CoreToolRuntime or ToolCalls
   -> Structured input
   -> PassThroughDispatcher
   -> ToolRequest
@@ -30,6 +34,7 @@ Structured direct execution is used when the caller already knows the target too
 
 ```text
 Caller
+  -> CoreToolRuntime or ToolCalls
   -> Input
   -> DispatcherChain
   -> ToolRequest

@@ -104,13 +104,14 @@ The configured dispatcher chain converts the prompt into the same `ToolRequest` 
 | `ToolExecutor` | Validates the request, resolves an implementation, and builds the final result |
 | `ToolImplementation` | Performs deterministic tool-specific work |
 | `ToolResult` | Returns status, output or error, and audit metadata |
+| `CoreToolRuntime` | Root-level facade over a configured `ToolExecutionService` |
 | `ToolCalls` | Recommended high-level API for structured and raw calls |
 
 ## Current Modules
 
 | Module | Purpose |
 |---|---|
-| `:core` | Framework-independent contracts, execution semantics, registries, defaults, audit models, and `ToolCalls` |
+| `:core` | Framework-independent contracts, execution semantics, registries, defaults, audit models, `CoreToolRuntime`, and `ToolCalls` |
 | `:tools:formula` | Deterministic formula evaluation tool backed by EvalEx |
 | `:runtime:local` | Lightweight local composition of core services and tools |
 | `:runtime:rest-api` | Ktor HTTP runtime with health, discovery, resolution, execution, and OpenAPI endpoints |
