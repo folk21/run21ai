@@ -41,6 +41,33 @@ class CoreToolRuntimeContractTest {
     }
 
     @Test
+    fun `in-memory factory creates runtime with default structured dispatcher chain`() {
+        val descriptor = testToolDescriptor()
+        val runtime = CoreToolRuntime.inMemory(
+            tools = listOf(descriptor),
+            executors = listOf(
+                DefaultToolExecutor(
+                    descriptor,
+                    InMemoryToolImplementationRegistry(listOf(EchoImplementation())),
+                ),
+            ),
+        )
+
+        val result = runSuspend {
+            runtime.execute {
+                tool(testToolCode())
+                actor("actor-1", ActorType.HUMAN, "Test Actor")
+                source(ExecutionSourceType.TEST, "core-runtime-factory-test")
+                input("value", 21)
+            }
+        }
+
+        assertEquals(ExecutionStatus.SUCCEEDED, result.status)
+        assertEquals(mapOf("echo" to mapOf("value" to 21)), result.outputPayload)
+        assertEquals("pass-through", result.auditMetadata.dispatcherTrace.steps.single().dispatcherCode.value)
+    }
+
+    @Test
     fun `raw facade call delegates through configured dispatcher chain`() {
         val runtime = CoreToolRuntime(rawEchoService())
 

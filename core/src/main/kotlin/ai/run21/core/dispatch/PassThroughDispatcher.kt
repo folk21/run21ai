@@ -10,8 +10,15 @@ import ai.run21.core.model.DispatcherTraceStep
 import ai.run21.core.model.StructuredDispatchInput
 
 /**
- * Accepts StructuredDispatchInput as an already prepared ToolRequest. This dispatcher is the core
- * mechanism behind direct tool execution.
+ * Dispatcher for already-structured tool requests.
+ *
+ * `PassThroughDispatcher` is the bridge between direct structured calls and the required dispatcher
+ * chain boundary. When input is a [StructuredDispatchInput], the dispatcher accepts its existing
+ * `ToolRequest` without interpretation. When input is raw or custom input, it passes so another
+ * dispatcher can try.
+ *
+ * This is why direct execution is not a separate execution model: structured requests still enter
+ * the same dispatcher-chain-to-executor pipeline, but this dispatcher performs no normalization.
  */
 class PassThroughDispatcher(
     override val code: DispatcherCode = DispatcherCode("pass-through"),

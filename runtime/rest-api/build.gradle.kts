@@ -15,7 +15,6 @@ dependencies {
     implementation(project(":core"))
     implementation(project(":dispatchers:llm"))
     implementation(project(":dispatchers:llm-ollama"))
-    implementation(project(":runtime:local"))
     implementation(project(":tools:formula"))
 
     implementation("io.ktor:ktor-server-core-jvm:3.1.3")

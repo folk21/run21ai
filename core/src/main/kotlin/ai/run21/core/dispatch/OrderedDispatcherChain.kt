@@ -15,8 +15,15 @@ import ai.run21.core.model.ToolError
 import ai.run21.core.model.ToolErrorCode
 
 /**
- * Runs dispatchers in order and records a trace for each dispatcher outcome. The first accepted
- * request is validated and returned to the execution layer.
+ * Default [DispatcherChain] implementation that runs dispatchers sequentially.
+ *
+ * The chain feeds input to dispatchers in configured order. A dispatcher may accept, reject, enrich,
+ * or pass. The first accepted request is validated and returned to the execution layer. The first
+ * rejection stops the chain. Enriched input becomes the input for the next dispatcher. Passed input
+ * leaves the current input unchanged and gives the next dispatcher a chance to handle it.
+ *
+ * Every dispatcher decision is recorded in a trace so a `ToolResult` can later explain how the
+ * request was selected or why dispatching failed.
  */
 class OrderedDispatcherChain(
     private val dispatchers: List<Dispatcher>,
@@ -25,8 +32,11 @@ class OrderedDispatcherChain(
     /**
      * Runs the configured dispatchers until one produces a terminal decision.
      *
-     * The method returns an accepted tool request, a structured rejection, or a rejection created
-     * by the chain when no dispatcher can handle the input.
+     * The method returns one of three controlled outcomes:
+     *
+     * - accepted request: a dispatcher produced a valid `ToolRequest`;
+     * - dispatcher rejection: a dispatcher decided execution must stop;
+     * - chain rejection: no dispatcher accepted the input or the chain is empty.
      */
     override suspend fun dispatch(input: DispatchInput): DispatcherChainResult {
         // An empty chain is a configuration error. It is reported as a structured rejection

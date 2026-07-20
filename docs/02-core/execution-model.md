@@ -12,6 +12,12 @@ Input -> DispatcherChain -> ToolRequest -> ToolExecutor -> ToolImplementation ->
 
 `CoreToolRuntime` is the root-level facade for callers that want one visible core entry point. It
 delegates to a configured `ToolExecutionService` and does not introduce a separate execution path.
+For simple in-memory composition, `CoreToolRuntime.inMemory(...)` creates the standard
+dispatcher-chain, registry, and execution-service wiring. Runtimes that also need request
+resolution or discovery access can use `CoreToolRuntime.inMemoryAssembly(...)` to reuse the same
+dispatcher chain and registries.
+Tool modules can expose a `CoreToolRegistration` so runtime modules can install the tool without
+duplicating descriptor, implementation registry, executor, and validator wiring.
 
 ## Structured Direct Execution
 

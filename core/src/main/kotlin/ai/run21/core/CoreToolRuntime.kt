@@ -1,11 +1,43 @@
 package ai.run21.core
 
+import ai.run21.core.dispatch.DispatcherChain
+import ai.run21.core.execution.DefaultToolExecutionService
 import ai.run21.core.execution.RawToolCallBuilder
 import ai.run21.core.execution.ToolCallBuilder
 import ai.run21.core.execution.ToolCalls
+import ai.run21.core.execution.ToolExecutor
 import ai.run21.core.execution.ToolExecutionService
 import ai.run21.core.model.DispatchInput
+import ai.run21.core.model.ToolDescriptor
 import ai.run21.core.model.ToolResult
+import ai.run21.core.registry.InMemoryToolExecutorRegistry
+import ai.run21.core.registry.InMemoryToolRegistry
+
+/**
+ * Tool descriptors and executors that can be installed into a core runtime.
+ *
+ * Tool modules can expose this value so runtime modules do not need to know how a tool descriptor,
+ * implementation registry, executor, and validator are wired internally.
+ */
+data class CoreToolRegistration(
+    val tools: List<ToolDescriptor>,
+    val executors: List<ToolExecutor>,
+)
+
+/**
+ * In-memory core runtime assembly created by [CoreToolRuntime.inMemoryAssembly].
+ *
+ * Some runtimes need more than the facade itself. For example, an HTTP runtime may execute through
+ * [runtime], resolve requests through [dispatcherChain], and expose tool discovery from
+ * [toolRegistry]. This value keeps those shared objects together so callers do not need to rebuild
+ * equivalent registries in several places.
+ */
+data class CoreToolRuntimeAssembly(
+    val runtime: CoreToolRuntime,
+    val dispatcherChain: DispatcherChain,
+    val toolRegistry: InMemoryToolRegistry,
+    val executorRegistry: InMemoryToolExecutorRegistry,
+)
 
 /**
  * Root-level facade for calling a configured core tool execution pipeline.
@@ -63,4 +95,88 @@ class CoreToolRuntime(
      */
     suspend fun dispatch(block: RawToolCallBuilder.() -> Unit): ToolResult =
         ToolCalls.dispatch(executionService, block)
+
+    companion object {
+        /**
+         * Creates a [CoreToolRuntime] backed by the standard in-memory core implementation.
+         *
+         * This helper centralizes the common lightweight wiring used by tests, examples, local
+         * runtimes, and simple embedded deployments:
+         *
+         * - [dispatcherChain] defines how input becomes a `ToolRequest`;
+         * - [tools] are registered in an [InMemoryToolRegistry];
+         * - [executors] are registered in an [InMemoryToolExecutorRegistry];
+         * - [DefaultToolExecutionService] connects those pieces into the core execution pipeline;
+         * - the resulting service is exposed through [CoreToolRuntime].
+         *
+         * The default dispatcher chain is the structured direct profile, which uses the
+         * pass-through dispatcher. Callers that support raw or prompt-like input should pass an
+         * explicit dispatcher chain that contains their normalizers or LLM dispatchers.
+         */
+        fun inMemory(
+            tools: Iterable<ToolDescriptor>,
+            executors: Iterable<ToolExecutor>,
+            dispatcherChain: DispatcherChain = CoreDefaults.structuredDirectDispatcherChain(),
+        ): CoreToolRuntime =
+            inMemoryAssembly(
+                tools = tools,
+                executors = executors,
+                dispatcherChain = dispatcherChain,
+            ).runtime
+
+        /**
+         * Creates a [CoreToolRuntime] from a tool module registration.
+         */
+        fun inMemory(
+            registration: CoreToolRegistration,
+            dispatcherChain: DispatcherChain = CoreDefaults.structuredDirectDispatcherChain(),
+        ): CoreToolRuntime =
+            inMemory(
+                tools = registration.tools,
+                executors = registration.executors,
+                dispatcherChain = dispatcherChain,
+            )
+
+        /**
+         * Creates the standard in-memory core runtime and returns its reusable assembled parts.
+         *
+         * Use this when a runtime needs direct access to the dispatcher chain or registries in
+         * addition to the [CoreToolRuntime] facade. The returned objects are the exact instances
+         * used by the execution service, so discovery, request resolution, readiness checks, and
+         * execution all observe the same in-memory registration state.
+         */
+        fun inMemoryAssembly(
+            tools: Iterable<ToolDescriptor>,
+            executors: Iterable<ToolExecutor>,
+            dispatcherChain: DispatcherChain = CoreDefaults.structuredDirectDispatcherChain(),
+        ): CoreToolRuntimeAssembly {
+            val toolRegistry = InMemoryToolRegistry(tools)
+            val executorRegistry = InMemoryToolExecutorRegistry(executors)
+            val service = DefaultToolExecutionService(
+                dispatcherChain = dispatcherChain,
+                toolRegistry = toolRegistry,
+                executorRegistry = executorRegistry,
+            )
+
+            return CoreToolRuntimeAssembly(
+                runtime = CoreToolRuntime(service),
+                dispatcherChain = dispatcherChain,
+                toolRegistry = toolRegistry,
+                executorRegistry = executorRegistry,
+            )
+        }
+
+        /**
+         * Creates the standard in-memory core runtime assembly from a tool module registration.
+         */
+        fun inMemoryAssembly(
+            registration: CoreToolRegistration,
+            dispatcherChain: DispatcherChain = CoreDefaults.structuredDirectDispatcherChain(),
+        ): CoreToolRuntimeAssembly =
+            inMemoryAssembly(
+                tools = registration.tools,
+                executors = registration.executors,
+                dispatcherChain = dispatcherChain,
+            )
+    }
 }

@@ -1,18 +1,15 @@
 package ai.run21.runtime.restapi
 
-import ai.run21.core.CoreDefaults
+import ai.run21.core.CoreToolRuntime
 import ai.run21.core.dispatch.DispatcherChain
 import ai.run21.core.dispatch.OrderedDispatcherChain
 import ai.run21.core.dispatch.PassThroughDispatcher
-import ai.run21.core.execution.DefaultToolExecutionService
 import ai.run21.core.execution.ToolExecutionService
-import ai.run21.core.registry.InMemoryToolExecutorRegistry
-import ai.run21.core.registry.InMemoryToolRegistry
 import ai.run21.core.registry.ToolRegistry
 import ai.run21.dispatchers.llm.LlmDispatcher
 import ai.run21.dispatchers.llm.ollama.OllamaLlmConfigFactory
 import ai.run21.dispatchers.llm.ollama.OllamaLlmDispatchClient
-import ai.run21.runtime.local.LocalRuntimeToolRegistration
+import ai.run21.tools.formula.FormulaToolWiring
 
 /**
  * Runtime components required by the REST API layer.
@@ -22,10 +19,13 @@ import ai.run21.runtime.local.LocalRuntimeToolRegistration
  * and discovery/readiness use the tool registry.
  */
 data class RestApiRuntime(
-    val service: ToolExecutionService,
+    val core: CoreToolRuntime,
     val dispatcherChain: DispatcherChain,
     val toolRegistry: ToolRegistry,
 ) {
+    val service: ToolExecutionService
+        get() = core.executionService
+
     /**
      * Reports whether the API has enough runtime wiring to accept traffic.
      */
@@ -57,20 +57,14 @@ object RestApiRuntimeFactory {
      * adding HTTP concerns to `core` or tool-specific execution paths to the runtime.
      */
     fun formulaOnly(): RestApiRuntime {
-        val registration = LocalRuntimeToolRegistration.formula()
-        val dispatcherChain = CoreDefaults.structuredDirectDispatcherChain()
-        val toolRegistry = InMemoryToolRegistry(registration.tools)
-        val executorRegistry = InMemoryToolExecutorRegistry(registration.executors)
-        val service = DefaultToolExecutionService(
-            dispatcherChain = dispatcherChain,
-            toolRegistry = toolRegistry,
-            executorRegistry = executorRegistry,
+        val assembly = CoreToolRuntime.inMemoryAssembly(
+            registration = FormulaToolWiring.registration(),
         )
 
         return RestApiRuntime(
-            service = service,
-            dispatcherChain = dispatcherChain,
-            toolRegistry = toolRegistry,
+            core = assembly.runtime,
+            dispatcherChain = assembly.dispatcherChain,
+            toolRegistry = assembly.toolRegistry,
         )
     }
 
@@ -81,7 +75,6 @@ object RestApiRuntimeFactory {
     fun formulaWithOllamaDispatcher(
         env: (String) -> String? = System::getenv,
     ): RestApiRuntime {
-        val registration = LocalRuntimeToolRegistration.formula()
         val dispatcherChain = OrderedDispatcherChain(
             listOf(
                 PassThroughDispatcher(),
@@ -92,18 +85,15 @@ object RestApiRuntimeFactory {
                 ),
             ),
         )
-        val toolRegistry = InMemoryToolRegistry(registration.tools)
-        val executorRegistry = InMemoryToolExecutorRegistry(registration.executors)
-        val service = DefaultToolExecutionService(
+        val assembly = CoreToolRuntime.inMemoryAssembly(
+            registration = FormulaToolWiring.registration(),
             dispatcherChain = dispatcherChain,
-            toolRegistry = toolRegistry,
-            executorRegistry = executorRegistry,
         )
 
         return RestApiRuntime(
-            service = service,
-            dispatcherChain = dispatcherChain,
-            toolRegistry = toolRegistry,
+            core = assembly.runtime,
+            dispatcherChain = assembly.dispatcherChain,
+            toolRegistry = assembly.toolRegistry,
         )
     }
 }

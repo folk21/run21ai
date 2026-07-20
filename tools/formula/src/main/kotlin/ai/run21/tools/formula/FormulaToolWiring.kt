@@ -1,11 +1,10 @@
 package ai.run21.tools.formula
 
-import ai.run21.core.CoreDefaults
-import ai.run21.core.execution.DefaultToolExecutionService
+import ai.run21.core.CoreToolRegistration
+import ai.run21.core.CoreToolRuntime
 import ai.run21.core.execution.DefaultToolExecutor
-import ai.run21.core.registry.InMemoryToolExecutorRegistry
+import ai.run21.core.execution.ToolExecutionService
 import ai.run21.core.registry.InMemoryToolImplementationRegistry
-import ai.run21.core.registry.InMemoryToolRegistry
 
 /**
  * Lightweight local wiring helpers for the formula tool.
@@ -15,9 +14,13 @@ import ai.run21.core.registry.InMemoryToolRegistry
  */
 object FormulaToolWiring {
     /**
-     * Creates a ready-to-use in-memory service with only the formula evaluation tool registered.
+     * Creates the formula tool registration with its EvalEx implementation.
+     *
+     * This method is the single place where the formula descriptor, implementation registry,
+     * executor, and validator are assembled. Runtime modules should consume this registration
+     * instead of rebuilding those parts themselves.
      */
-    fun service(): DefaultToolExecutionService {
+    fun registration(): CoreToolRegistration {
         val descriptor = FormulaToolDescriptorFactory.create()
         val implementation = EvalExFormulaToolImplementation()
         val implementationRegistry = InMemoryToolImplementationRegistry(listOf(implementation))
@@ -27,10 +30,22 @@ object FormulaToolWiring {
             validator = FormulaToolRequestValidator,
         )
 
-        return DefaultToolExecutionService(
-            dispatcherChain = CoreDefaults.structuredDirectDispatcherChain(),
-            toolRegistry = InMemoryToolRegistry(listOf(descriptor)),
-            executorRegistry = InMemoryToolExecutorRegistry(listOf(executor)),
+        return CoreToolRegistration(
+            tools = listOf(descriptor),
+            executors = listOf(executor),
         )
     }
+
+    /**
+     * Creates a ready-to-use in-memory core runtime with only the formula evaluation tool
+     * registered.
+     */
+    fun runtime(): CoreToolRuntime =
+        CoreToolRuntime.inMemory(registration())
+
+    /**
+     * Creates a ready-to-use in-memory service with only the formula evaluation tool registered.
+     */
+    fun service(): ToolExecutionService =
+        runtime().executionService
 }
