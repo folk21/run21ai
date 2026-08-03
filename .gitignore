@@ -18,6 +18,6 @@ build
 .env
 .gradletasknamecache
 local.properties
-gradle/wrapper/gradle-wrapper.jar
-{token:<JWT>}
+!gradle/wrapper/gradle-wrapper.jar
+
 ~                  

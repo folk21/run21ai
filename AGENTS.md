@@ -1,180 +1,146 @@
 # AGENTS.md
 
-This file defines instructions for AI coding agents working on Run21AI.
+This file defines repository-wide development rules for Run21AI. Read the nearest local documentation before changing a concrete tool, runtime, dispatcher adapter, client, or test package.
 
 ## Project Intent
 
-Run21AI is a lightweight dispatcher-driven tool execution engine.
+Run21AI is a Kotlin-first dispatcher-driven tool execution engine. The stable architectural rule is:
 
-The system routes input through a dispatcher chain, converts it into a structured `ToolRequest`, executes the target tool through a registered `ToolExecutor` and `ToolImplementation`, and returns an auditable `ToolResult`.
+> Dispatchers prepare `ToolRequest` values. `ToolImplementation` objects perform real work.
 
-Central model:
+The detailed contracts are owned by [Execution Contracts](docs/architecture/EXECUTION.md). Do not restate them in new documents or module comments.
 
-```text
-Input -> DispatcherChain -> ToolRequest -> ToolExecutor -> ToolImplementation -> ToolResult
+## Source of Truth
+
+Use the following ownership order:
+
+1. production code and machine-readable schemas define implemented behavior;
+2. tests define verified behavior;
+3. `docs/architecture/` explains stable architecture and contracts;
+4. `docs/USAGE.md` explains supported commands and runtime configuration;
+5. `ROADMAP.md` contains future work only;
+6. `docs/CHANGELOG.md` records completed documentation and release changes.
+
+When documentation conflicts with code, verify the behavior, fix the owning document, and replace duplicate explanations with links.
+
+## Architecture Rules
+
+- Keep `:core` framework-independent.
+- Keep dependencies pointing from runtimes, adapters, and tools toward core contracts.
+- Keep Ktor, EvalEx, Ollama, persistence, CLI frameworks, and external service SDKs outside `:core`.
+- Route every execution through a `DispatcherChain`.
+- Use `PassThroughDispatcher` for already structured requests; do not create a second direct-execution path.
+- Keep LLM integrations outside `:core` and outside tool implementations.
+- Never let an LLM calculate the final business result or bypass `ToolExecutor`, audit metadata, validation, or runtime policy.
+- Treat calculation-like behavior as a tool, not as a special execution subsystem.
+- Prefer explicit code-based registration over reflection or implicit classpath discovery.
+- Add abstractions only after at least two concrete use cases require them.
+
+## Terminology
+
+Use these names consistently:
+
+- `Dispatcher`
+- `DispatcherChain`
+- `DispatchInput`
+- `StructuredDispatchInput`
+- `RawDispatchInput`
+- `ToolRequest`
+- `ToolExecutor`
+- `ToolImplementation`
+- `ToolExecutionOutput`
+- `ToolResult`
+- `ToolError`
+- `AuditMetadata`
+- `ToolCalls`
+
+Do not introduce parallel terms for the same concepts.
+
+## Kotlin Rules
+
+- Use idiomatic Kotlin and immutable data classes.
+- Prefer small explicit interfaces and constructor injection.
+- Use sealed types or enums for controlled states.
+- Avoid reflection, global mutable state, and hidden registration.
+- Keep public APIs stable and self-explanatory.
+- Use KDoc for public contracts and important public functions.
+- Add inline comments only for non-obvious decisions.
+- Keep all code comments, KDoc, configuration comments, examples, and software documentation in English.
+
+## Core Changes
+
+Before changing `core/src/main/kotlin`:
+
+- inspect the relevant contract tests in `core/src/test/kotlin`;
+- preserve framework independence;
+- preserve the single execution pipeline;
+- return structured failures for expected unsupported or invalid states;
+- update tests for every semantic change;
+- update [Execution Contracts](docs/architecture/EXECUTION.md) only when the public contract changes.
+
+Prefer `ToolCalls.execute(...)` for structured contract scenarios and `ToolCalls.dispatch(...)` for raw-input scenarios. Use lower-level models directly only when testing dispatchers, registries, validation, builders, or unsupported defaults.
+
+## Tool and Runtime Changes
+
+- Keep tool-specific parsing, validation, and execution inside the tool module.
+- Keep runtime composition outside tool implementations and outside `:core`.
+- Keep HTTP DTOs and mapping in the REST runtime.
+- Keep provider-specific LLM transport and prompt resources in the provider adapter module.
+- Register a new tool through the existing core registration model before adding new registration abstractions.
+- Update the OpenAPI resource and REST tests together when the HTTP contract changes.
+
+## LLM Changes
+
+- Treat model output as untrusted input.
+- Validate structured output before creating or executing a `ToolRequest`.
+- Do not let a model invent missing business values.
+- Keep retries bounded and deterministic when retry support is added.
+- Record useful provider, model, prompt, and attempt metadata without logging sensitive payloads.
+- Keep provider-neutral behavior in `:dispatchers:llm`; keep Ollama-specific behavior in `:dispatchers:llm-ollama`.
+
+The current LLM boundary and schema ownership are documented in [LLM Dispatch](docs/architecture/LLM_DISPATCH.md).
+
+## Testing
+
+Use the smallest relevant test layer first:
+
+```bash
+./gradlew :core:test
+./gradlew :tools:formula:test
+./gradlew :dispatchers:llm:test :dispatchers:llm-ollama:test
+./gradlew :runtime:rest-api:test
+./gradlew test
 ```
 
-## Core Rule
+Run Rust and pytest checks when changing the REST contract or clients. The complete command matrix is owned by [Testing](docs/TESTING.md).
 
-The `core` module is the framework-independent abstract execution kernel.
+Tests must be deterministic. Core tests must not require external services, credentials, an LLM server, or a network connection.
 
-It defines:
+## Documentation Rules
 
-* models;
-* interfaces;
-* dispatcher contracts;
-* dispatcher chain contracts;
-* tool request/result contracts;
-* tool executor contracts;
-* tool implementation contracts;
-* registry contracts;
-* status and error models;
-* audit metadata;
-* unsupported defaults;
-* convenience APIs such as `ToolCalls`.
+Each topic has one owning document:
 
-The `core` module must not depend on runtime frameworks, persistence frameworks, CLI libraries, LLM clients, expression engines, or external service SDKs.
+| Topic | Owner |
+|---|---|
+| Project overview and quick start | `README.md` |
+| Engineering rules | `AGENTS.md` |
+| Architecture boundaries | `docs/architecture/README.md` |
+| Execution models and contracts | `docs/architecture/EXECUTION.md` |
+| LLM dispatch design | `docs/architecture/LLM_DISPATCH.md` |
+| Commands and runtime configuration | `docs/USAGE.md` |
+| Test commands and coverage layers | `docs/TESTING.md` |
+| Future work | `ROADMAP.md` |
+| Completed changes | `docs/CHANGELOG.md` |
+| HTTP schema | `runtime/rest-api/src/main/resources/openapi.yaml` |
+| Ollama output schema | `dispatchers/llm-ollama/src/main/resources/ollama/formula-dispatch/output-schema.json` |
 
-## Execution Rule
+Do not create navigation-only Markdown files or copy machine-readable schemas into `docs/`. Link to the owning file instead.
 
-All execution must pass through a `DispatcherChain`.
+## Change Scope
 
-Structured execution uses:
-
-```text
-ToolCalls.execute
-  -> StructuredDispatchInput
-  -> PassThroughDispatcher
-  -> ToolRequest
-  -> ToolExecutor
-  -> ToolImplementation
-  -> ToolResult
-```
-
-Raw or prompt-like execution uses:
-
-```text
-ToolCalls.dispatch
-  -> RawDispatchInput
-  -> DispatcherChain
-  -> ToolRequest
-  -> ToolExecutor
-  -> ToolImplementation
-  -> ToolResult
-```
-
-Direct execution is not a separate execution model. It is structured input handled by a pass-through dispatcher.
-
-## LLM Rule
-
-An LLM may be used only as a dispatcher inside the dispatcher chain.
-
-An LLM dispatcher may:
-
-* analyze raw input;
-* classify intent;
-* select a target tool;
-* prepare structured arguments;
-* enrich metadata;
-* reject ambiguous or unsafe input.
-
-An LLM dispatcher must not:
-
-* perform real tool work;
-* calculate final business results;
-* bypass `ToolExecutor`;
-* bypass audit metadata;
-* directly call external systems unless that behavior is implemented as a tool.
-
-Mock LLM dispatchers are allowed in tests and examples.
-
-## Terminology Rule
-
-Use these terms consistently:
-
-* `Dispatcher`
-* `DispatcherChain`
-* `DispatchInput`
-* `StructuredDispatchInput`
-* `RawDispatchInput`
-* `ToolRequest`
-* `ToolExecutor`
-* `ToolImplementation`
-* `ToolExecutionOutput`
-* `ToolResult`
-* `ToolError`
-* `AuditMetadata`
-* `ToolCalls`
-
-Do not introduce parallel terms for the same concept.
-
-Do not treat “calculation” as a separate execution path. Formula-like or calculation-like behavior is just one possible tool family.
-
-## ToolCalls Rule
-
-`ToolCalls` is the preferred high-level API for examples and most contract tests.
-
-Use `ToolCalls.execute(...)` for structured tool calls.
-
-Use `ToolCalls.dispatch(...)` for raw input that must pass through a dispatcher chain.
-
-Low-level tests may bypass `ToolCalls` only when they directly test:
-
-* dispatcher behavior;
-* dispatcher chain behavior;
-* registries;
-* validation;
-* unsupported defaults;
-* builders.
-
-## Scope Rule
-
-Generate small slices.
-
-For each slice, include:
-
-* model/interface changes when needed;
-* implementation changes when needed;
-* contract tests;
-* README updates when public usage changes;
-* documentation updates when terminology or behavior changes.
-
-Do not generate unrelated runtime framework code inside the `core` module.
-
-## Testing Rule
-
-Core tests must validate contracts, status behavior, unsupported defaults, dispatcher-chain behavior, audit metadata, and recommended call APIs.
-
-Tests must remain deterministic.
-
-Do not introduce external services into core tests.
-
-Runtime implementations must be tested in their own modules.
-
-## Documentation Rule
-
-All documentation, code comments, KDoc, configuration comments, and generated text must be in English.
-
-Documentation changes must keep requirements, glossary, architecture, testing, generation rules, and README examples aligned.
-
-## Style Rule
-
-Use idiomatic Kotlin.
-
-Prefer:
-
-* immutable data classes;
-* explicit small interfaces;
-* sealed classes or enums for controlled states;
-* stable public API names;
-* readable tests;
-* concise KDoc for public classes and important public functions.
-
-Avoid:
-
-* unnecessary file-level comments;
-* noisy comments that restate the code;
-* reflection unless explicitly required;
-* global mutable state;
-* framework annotations in `core`;
-* over-engineered abstractions.
+- Make the smallest useful change.
+- Preserve behavior unless the task explicitly changes it.
+- Avoid unrelated modules and speculative framework integration.
+- Update tests and the owning documentation in the same change.
+- Mention changed files and validation performed.
+- Preserve the repository root name `run21ai/` in generated archives.
