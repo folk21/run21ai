@@ -13,7 +13,7 @@ This file records completed repository-level changes. Future work belongs in [Ro
 - Refocused `AGENTS.md` on development rules and documentation ownership.
 - Moved the roadmap to `docs/ROADMAP.md` and added `docs/index.md` as the central documentation index.
 - Replaced the architecture module-boundary text diagram with Mermaid.
-- Replaced the stage-history roadmap with prioritized `Now`, `Next`, and `Later` work.
+- Replaced the stage-history roadmap with compact per-item `[x]` `DONE`, `[/]` `IN_PROGRESS`, and `[ ]` `TODO` status markers.
 - Consolidated REST, Kotlin API, formula tool, runtime profile, and Rust CLI examples in `docs/USAGE.md`.
 - Consolidated Kotlin, Rust, and pytest validation commands in `docs/TESTING.md`.
 

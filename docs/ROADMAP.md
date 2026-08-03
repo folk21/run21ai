@@ -1,76 +1,82 @@
 # Roadmap
 
-Run21AI is moving from a working vertical slice toward a reliable, policy-controlled tool execution engine. This file contains future work only; completed changes belong in [Changelog](CHANGELOG.md).
+Status legend:
 
-## Now — Execution Hardening
+- `[x]` `DONE` — implemented foundation or completed work;
+- `[/]` `IN_PROGRESS` — partially implemented or currently being hardened;
+- `[ ]` `TODO` — planned work that has not been completed.
 
-Goal: make every execution path controlled, reproducible, and operationally safe.
+Completed release history belongs in [CHANGELOG.md](CHANGELOG.md). This file keeps a compact foundation summary plus current and planned work.
 
-- Normalize dispatcher and tool implementation exceptions into stable `ToolResult` errors.
-- Define execution error codes for internal failures, timeouts, and cancellation.
-- Make readiness validate the complete registration graph rather than descriptor count only.
-- Reject unknown HTTP enum values instead of silently substituting defaults.
-- Make default implementation selection explicit and detect duplicate registrations at startup.
-- Clarify whether `ContractSchema` is descriptive metadata or an enforced runtime contract; prefer enforcement before execution.
-- Validate that tool inputs and outputs are JSON-compatible at transport boundaries.
-- Replace blocking Ollama transport calls with asynchronous execution.
-- Redact or disable full prompt and model-response logging by default.
-- Activate deterministic raw-dispatch system coverage and remove obsolete `xfail` expectations.
+## Completed Foundations
 
-Exit criteria:
+- [x] Define the framework-independent `:core` execution model.
+- [x] Route structured and raw input through the same `DispatcherChain` boundary.
+- [x] Provide canonical `ToolRequest`, `ToolResult`, `ToolError`, and audit models.
+- [x] Provide `ToolCalls.execute(...)` and `ToolCalls.dispatch(...)` as the recommended high-level APIs.
+- [x] Provide ordered dispatching, pass-through structured dispatching, registries, default execution, and unsupported defaults.
+- [x] Add deterministic core contract tests without runtime framework dependencies.
+- [x] Add `:runtime:local` and the Ktor-based `:runtime:rest-api` runtime.
+- [x] Expose health, readiness, tool discovery, request resolution, execution, OpenAPI, and interactive API documentation endpoints.
+- [x] Add the deterministic EvalEx-backed `formula.evaluate` tool outside `:core`.
+- [x] Add the provider-neutral `:dispatchers:llm` module and the Ollama adapter in `:dispatchers:llm-ollama`.
+- [x] Keep LLM behavior limited to preparing or rejecting a `ToolRequest`; registered tools still perform all real work.
+- [x] Add the independent Rust `run21ctl` client and pytest-based system-test foundation.
+- [x] Consolidate project documentation into owning documents with machine-readable contracts kept in runtime resources.
 
-- expected failures return structured results with audit metadata;
-- runtime composition fails fast when registrations are inconsistent;
-- the full Gradle suite and client/system checks are reproducible from a clean checkout.
+## Execution Hardening
 
-## Next — Generic and Safe LLM Dispatch
+- [/] Normalize dispatcher and tool implementation failures into structured `ToolResult` values with audit metadata.
+- [ ] Add stable error codes for internal failures, timeouts, and cancellation.
+- [/] Improve core and formula validation diagnostics while preserving stable public error contracts.
+- [/] Define which `CapabilityStatus` values are informational and which block execution.
+- [/] Decide whether `ContractSchema` is descriptive metadata or an enforced runtime contract; prefer validation before execution.
+- [ ] Validate that tool inputs and outputs are JSON-compatible before they reach transport serialization.
+- [ ] Make readiness validate the complete registration graph rather than descriptor count only.
+- [ ] Reject unknown HTTP enum values instead of silently substituting defaults.
+- [/] Make default implementation selection explicit and detect duplicate registrations during runtime assembly.
+- [ ] Replace blocking Ollama transport calls with asynchronous execution.
+- [/] Redact sensitive prompt and model-response data from dispatcher debug logging.
+- [/] Activate deterministic raw-dispatch system coverage and remove obsolete `xfail` expectations.
+- [ ] Add one reproducible repository-level validation command and run it in continuous integration.
 
-Goal: support more than one tool without making the LLM an executor or policy authority.
+## Generic and Safe LLM Dispatch
 
-- Build the LLM tool catalog from registered descriptors instead of hardcoded formula constants.
-- Apply caller-specific tool allowlists before prompting a model.
-- Keep implementation selection under runtime policy by default.
-- Validate model output against the selected tool contract.
-- Verify exact user-provided values, not only parameter names.
-- Add bounded repair retries for invalid structured output.
-- Record provider, model, prompt version, attempt count, and latency in dispatcher trace metadata.
-- Add optional integration tests for an available Ollama server without making them part of deterministic core tests.
+- [/] Strengthen structured-output validation beyond the current formula-specific Ollama response checks.
+- [ ] Build the model-visible tool catalog from registered descriptors instead of hardcoded formula constants.
+- [ ] Apply caller-specific tool allowlists before sending a catalog to a model.
+- [ ] Keep implementation selection under runtime policy by default rather than model control.
+- [ ] Validate accepted model output against the selected tool contract.
+- [ ] Verify exact user-provided business values, not only parameter names.
+- [ ] Add bounded repair retries for invalid or ambiguous structured output.
+- [ ] Record provider, model, prompt version, attempt count, and latency in dispatcher trace metadata.
+- [ ] Add optional Ollama integration tests without adding network dependencies to deterministic core tests.
 
-Exit criteria:
+## Registration and Tool Growth
 
-- a model cannot select an unavailable or unauthorized tool;
-- a model cannot invent missing business values;
-- accepted model output uses the same `ToolRequest`, executor, result, and audit contracts as structured execution.
+- [/] Consolidate runtime registration around one explicit composition model and remove duplicated formula wiring.
+- [ ] Add a second tool family that creates different runtime pressure, such as an allowlisted HTTP adapter or deterministic document transformation.
+- [ ] Add tool-specific validation, timeout behavior, negative-path tests, REST coverage, and CLI smoke coverage for the second tool.
+- [ ] Keep complex and security-sensitive tools code-registered.
+- [ ] Evaluate declarative registration only after multiple low-risk tools share a proven configuration contract.
 
-## Next — Registration and Second Tool
+## Clients and System Validation
 
-Goal: prove the architecture with another tool family before generalizing it further.
+- [/] Harden `run21ctl` error handling and add friendlier output modes only where raw JSON is insufficient.
+- [/] Add CLI contract tests for invalid arguments and structured backend errors.
+- [/] Keep CLI commands, REST mappings, OpenAPI, and usage examples synchronized.
+- [/] Run prompt-resolution system tests as normal tests when a deterministic raw-dispatch profile is available.
+- [ ] Decide which Rust and pytest checks are required in continuous integration.
 
-- Consolidate runtime registration around one explicit composition model.
-- Add one tool that creates different runtime pressure, such as an allowlisted HTTP adapter or deterministic document transformation.
-- Add tool-specific validation, timeout behavior, negative-path tests, REST coverage, and CLI smoke coverage.
-- Keep declarative registration limited to low-risk metadata; keep sensitive behavior code-registered.
+## Operational Platform
 
-Exit criteria:
+- [ ] Add persistent execution and audit storage after the in-memory contracts stabilize.
+- [ ] Add authentication, authorization, and per-actor tool policy.
+- [ ] Add metrics, tracing, rate limits, execution budgets, and operational diagnostics.
+- [ ] Add explicit deployment configuration profiles.
 
-- a second tool is added without changing core execution semantics;
-- runtime composition does not duplicate descriptor, executor, implementation, or validator wiring.
+## Bounded Orchestration
 
-## Later — Operational Platform
-
-- Persistent execution and audit storage.
-- Authentication, authorization, and per-actor tool policy.
-- Metrics, tracing, rate limits, and execution budgets.
-- Configuration profiles for deployment environments.
-- Additional client output modes and operational diagnostics.
-
-## Later — Bounded Orchestration
-
-Consider workflow or graph execution only after several independent tools are stable. Orchestration must call the existing execution service with ordinary `ToolRequest` values and must not introduce a second tool execution path.
-
-Out of scope for the core:
-
-- autonomous agent loops;
-- conversational memory;
-- unrestricted recursive tool calls;
-- model-driven execution that bypasses runtime policy.
+- [ ] Evaluate workflow or graph execution only after several independent tools are stable.
+- [ ] Require orchestration to call the existing execution service with ordinary `ToolRequest` values.
+- [ ] Keep autonomous agent loops, conversational memory, unrestricted recursive tool calls, and model-driven execution outside `:core`.
