@@ -1,6 +1,6 @@
 # Roadmap
 
-Run21AI is moving from a working vertical slice toward a reliable, policy-controlled tool execution engine. This file contains future work only; completed changes belong in [Changelog](docs/CHANGELOG.md).
+Run21AI is moving from a working vertical slice toward a reliable, policy-controlled tool execution engine. This file contains future work only; completed changes belong in [Changelog](CHANGELOG.md).
 
 ## Now — Execution Hardening
 

@@ -1,6 +1,6 @@
 # Usage
 
-This document owns supported invocation and runtime-configuration examples. Architecture and contract semantics are documented separately in [Architecture](architecture/README.md).
+This document owns supported invocation and runtime-configuration examples. Architecture and contract semantics are documented separately in [Architecture](architecture/ARCHITECTURE.md).
 
 ## REST API
 

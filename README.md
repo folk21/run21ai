@@ -96,14 +96,8 @@ Additional Rust and system-test commands are documented in [Testing](docs/TESTIN
 
 ## Documentation
 
-- [Installation](docs/INSTALLATION.md)
-- [Usage](docs/USAGE.md)
-- [Architecture](docs/architecture/README.md)
-- [Execution Contracts](docs/architecture/EXECUTION.md)
-- [LLM Dispatch](docs/architecture/LLM_DISPATCH.md)
-- [Testing](docs/TESTING.md)
-- [Roadmap](ROADMAP.md)
-- [Changelog](docs/CHANGELOG.md)
+- [Documentation Index](docs/index.md)
+- [Roadmap](docs/ROADMAP.md)
 - [Development Rules](AGENTS.md)
 
 The machine-readable HTTP contract is owned by [`runtime/rest-api/src/main/resources/openapi.yaml`](runtime/rest-api/src/main/resources/openapi.yaml).

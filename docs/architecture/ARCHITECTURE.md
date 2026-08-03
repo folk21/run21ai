@@ -1,6 +1,6 @@
 # Architecture
 
-Run21AI separates request preparation from deterministic tool execution. The root [README](../../README.md) contains the project-level flow; this directory owns architectural boundaries and contracts.
+Run21AI separates request preparation from deterministic tool execution. The root [README](../../README.md) contains the project-level flow; this directory owns architectural boundaries and contracts. The complete documentation map is in the [Documentation Index](../index.md).
 
 Architecture documents:
 
@@ -19,18 +19,14 @@ Architecture documents:
 
 ## Module Boundaries
 
-```text
-clients/ and external callers
-        |
-        v
-runtime/                 transport and application composition
-        |
-        +----> dispatchers/   request preparation adapters
-        |
-        +----> tools/         concrete executable capabilities
-        |
-        v
-core/                    framework-independent contracts and semantics
+```mermaid
+flowchart TD
+    C["clients/ and external callers"] -->|HTTP or embedded API| R["runtime/<br/>transport and application composition"]
+    R --> D["dispatchers/<br/>request preparation adapters"]
+    R --> T["tools/<br/>concrete executable capabilities"]
+    R --> K["core/<br/>framework-independent contracts and semantics"]
+    D --> K
+    T --> K
 ```
 
 Dependencies point toward `core`. Core must not import runtime, tool, dispatcher-provider, persistence, CLI, or external-service implementations.
@@ -84,4 +80,4 @@ The core remains deployment-independent. Persistent registries, authentication, 
 
 ## Documentation Ownership
 
-Architecture details live only in this directory. User commands live in [Usage](../USAGE.md), validation commands in [Testing](../TESTING.md), and future improvements in the [Roadmap](../../ROADMAP.md).
+Architecture details live only in this directory. User commands live in [Usage](../USAGE.md), validation commands in [Testing](../TESTING.md), future improvements in the [Roadmap](../ROADMAP.md), and cross-document navigation in the [Documentation Index](../index.md).

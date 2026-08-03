@@ -105,7 +105,7 @@ Validation occurs at two levels:
 - core validation checks invariants required by every runtime, such as tool identity, actor identity, and correlation identifiers;
 - tool validation checks the concrete payload contract before implementation execution.
 
-`ContractSchema` exposes descriptor metadata without binding core to a particular schema library. The current runtime does not automatically validate every payload against this schema; tool validators remain the enforced contract. This limitation is tracked in the [Roadmap](../../ROADMAP.md).
+`ContractSchema` exposes descriptor metadata without binding core to a particular schema library. The current runtime does not automatically validate every payload against this schema; tool validators remain the enforced contract. This limitation is tracked in the [Roadmap](../ROADMAP.md).
 
 ## Status and Errors
 

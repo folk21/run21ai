@@ -18,7 +18,7 @@ Use the following ownership order:
 2. tests define verified behavior;
 3. `docs/architecture/` explains stable architecture and contracts;
 4. `docs/USAGE.md` explains supported commands and runtime configuration;
-5. `ROADMAP.md` contains future work only;
+5. `docs/ROADMAP.md` contains future work only;
 6. `docs/CHANGELOG.md` records completed documentation and release changes.
 
 When documentation conflicts with code, verify the behavior, fix the owning document, and replace duplicate explanations with links.
@@ -124,17 +124,18 @@ Each topic has one owning document:
 |---|---|
 | Project overview and quick start | `README.md` |
 | Engineering rules | `AGENTS.md` |
-| Architecture boundaries | `docs/architecture/README.md` |
+| Documentation navigation | `docs/index.md` |
+| Architecture boundaries | `docs/architecture/ARCHITECTURE.md` |
 | Execution models and contracts | `docs/architecture/EXECUTION.md` |
 | LLM dispatch design | `docs/architecture/LLM_DISPATCH.md` |
 | Commands and runtime configuration | `docs/USAGE.md` |
 | Test commands and coverage layers | `docs/TESTING.md` |
-| Future work | `ROADMAP.md` |
+| Future work | `docs/ROADMAP.md` |
 | Completed changes | `docs/CHANGELOG.md` |
 | HTTP schema | `runtime/rest-api/src/main/resources/openapi.yaml` |
 | Ollama output schema | `dispatchers/llm-ollama/src/main/resources/ollama/formula-dispatch/output-schema.json` |
 
-Do not create navigation-only Markdown files or copy machine-readable schemas into `docs/`. Link to the owning file instead.
+Use `docs/index.md` as the only central documentation index. Do not create nested navigation-only Markdown files or copy machine-readable schemas into `docs/`; link to the owning file instead.
 
 ## Change Scope
 
