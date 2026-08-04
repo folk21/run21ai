@@ -21,6 +21,8 @@ This file records completed repository-level changes. Future work belongs in [Ro
 - Normalized unexpected dispatcher, executor, and implementation failures into stable structured errors.
 - Added explicit timeout normalization while preserving caller cancellation and interruption semantics.
 - Removed raw provider exception details from LLM dispatcher failures.
+- Centralized audit timestamp creation in `AuditMetadataFactory` and propagated injected clocks through default runtime wiring.
+- Replaced the implicit system-time default of `AuditMetadata.completedAt` with a deterministic `startedAt` fallback.
 
 ### Removed
 

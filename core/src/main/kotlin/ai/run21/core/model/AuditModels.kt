@@ -86,7 +86,7 @@ data class AuditMetadata(
     val version: VersionSnapshot? = null,
     val correlation: CorrelationMetadata,
     val startedAt: Instant,
-    val completedAt: Instant = Instant.now(),
+    val completedAt: Instant = startedAt,
     val metadata: Map<String, Any?> = emptyMap(),
 ) {
     init {

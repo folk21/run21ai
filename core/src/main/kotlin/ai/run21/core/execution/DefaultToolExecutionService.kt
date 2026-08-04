@@ -2,17 +2,12 @@ package ai.run21.core.execution
 
 import ai.run21.core.dispatch.DispatcherChain
 import ai.run21.core.failure.toNormalizedToolError
-import ai.run21.core.model.ActorSnapshot
-import ai.run21.core.model.AuditMetadata
 import ai.run21.core.model.DispatchInput
 import ai.run21.core.model.DispatcherChainResult
 import ai.run21.core.model.ExecutionStatus
-import ai.run21.core.model.ToolCode
 import ai.run21.core.model.ToolError
 import ai.run21.core.model.ToolErrorCode
-import ai.run21.core.model.ToolRequest
 import ai.run21.core.model.ToolResult
-import ai.run21.core.model.ToolSnapshot
 import ai.run21.core.registry.ToolExecutorRegistry
 import ai.run21.core.registry.ToolRegistry
 import java.time.Clock
@@ -25,8 +20,10 @@ class DefaultToolExecutionService(
     private val dispatcherChain: DispatcherChain,
     private val toolRegistry: ToolRegistry,
     private val executorRegistry: ToolExecutorRegistry,
-    private val clock: Clock = Clock.systemUTC(),
+    clock: Clock = Clock.systemUTC(),
 ) : ToolExecutionService {
+    private val auditMetadataFactory = AuditMetadataFactory(clock)
+
     /**
      * Executes an input by first passing it through the dispatcher chain.
      *
@@ -72,7 +69,7 @@ class DefaultToolExecutionService(
         // The tool descriptor is the registry-level declaration of the requested capability.
         val descriptor = toolRegistry.find(request.targetTool)
         if (descriptor == null) {
-            val auditMetadata = AuditMetadataFactory(clock).create(
+            val auditMetadata = auditMetadataFactory.create(
                 request = request,
                 toolDescriptor = null,
                 implementationDescriptor = null,
@@ -88,13 +85,12 @@ class DefaultToolExecutionService(
             )
         }
 
-        // The executor owns tool-level request handling. If no executor exists, the core returns
-        // a structured unsupported-tool result through a default executor.
+        // If no executor exists, the core returns a structured unsupported-tool result.
         val executor = executorRegistry.find(request.targetTool)
             ?: UnsupportedToolExecutor(
                 toolCode = request.targetTool,
                 descriptor = descriptor,
-                auditMetadataFactory = AuditMetadataFactory(clock),
+                auditMetadataFactory = auditMetadataFactory,
             )
 
         val executionRequest = request.copy(dispatcherTrace = chainResult.trace)
@@ -110,7 +106,7 @@ class DefaultToolExecutionService(
                     "toolCode" to request.targetTool.value,
                 ),
             )
-            val auditMetadata = AuditMetadataFactory(clock).create(
+            val auditMetadata = auditMetadataFactory.create(
                 request = executionRequest,
                 toolDescriptor = descriptor,
                 implementationDescriptor = null,
@@ -123,17 +119,10 @@ class DefaultToolExecutionService(
     /**
      * Creates audit metadata for requests rejected before a concrete tool is selected.
      */
-    private fun rejectedAuditMetadata(input: DispatchInput, chainResult: DispatcherChainResult): AuditMetadata =
-        AuditMetadata(
-            actor = ActorSnapshot.from(input.actor),
-            source = input.source,
+    private fun rejectedAuditMetadata(input: DispatchInput, chainResult: DispatcherChainResult) =
+        auditMetadataFactory.createRejectedDispatch(
+            input = input,
             dispatcherTrace = chainResult.trace,
-            tool = ToolSnapshot.UNKNOWN.copy(code = ToolCode("unknown")),
-            implementation = null,
-            version = null,
-            correlation = input.correlation,
-            startedAt = clock.instant(),
-            completedAt = clock.instant(),
             metadata = mapOf("executionStatus" to ExecutionStatus.REJECTED.wireValue),
         )
 }

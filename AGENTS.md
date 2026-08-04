@@ -79,6 +79,7 @@ Before changing `core/src/main/kotlin`:
 - return structured failures for expected unsupported, invalid, timeout, and internal failure states;
 - propagate caller cancellation instead of converting it into a `ToolResult`;
 - do not expose raw exception classes, messages, or stack traces through public `ToolError` details;
+- create audit timestamps through an injected `Clock` and `AuditMetadataFactory`; do not call `Instant.now()` in execution code;
 - update tests for every semantic change;
 - update [Execution Contracts](docs/architecture/EXECUTION.md) only when the public contract changes.
 

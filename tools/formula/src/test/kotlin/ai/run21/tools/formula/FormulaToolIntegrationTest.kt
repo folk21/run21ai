@@ -8,6 +8,9 @@ import ai.run21.testsupport.testActor
 import ai.run21.testsupport.testSource
 import java.math.BigDecimal
 import java.math.RoundingMode
+import java.time.Clock
+import java.time.Instant
+import java.time.ZoneOffset
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -62,5 +65,25 @@ class FormulaToolIntegrationTest {
 
         assertEquals(ExecutionStatus.FAILED, result.status)
         assertEquals(ToolErrorCode.INVALID_TOOL_REQUEST, result.error?.code)
+    }
+
+    @Test
+    fun `formula wiring propagates injected clock to audit timestamps`() {
+        val instant = Instant.parse("2026-08-04T11:00:00Z")
+        val service = FormulaToolWiring.service(Clock.fixed(instant, ZoneOffset.UTC))
+
+        val result = runSuspend {
+            ToolCalls.execute(service) {
+                tool(FormulaTool.TOOL_CODE)
+                implementation(FormulaTool.IMPLEMENTATION_CODE)
+                actor(testActor())
+                source(testSource())
+                input(FormulaTool.Input.EXPRESSION, "1 + 1")
+            }
+        }
+
+        assertEquals(ExecutionStatus.SUCCEEDED, result.status)
+        assertEquals(instant, result.auditMetadata.startedAt)
+        assertEquals(instant, result.auditMetadata.completedAt)
     }
 }

@@ -29,6 +29,7 @@ Completed release history belongs in [CHANGELOG.md](CHANGELOG.md). This file kee
 
 - [x] Normalize dispatcher, dispatcher-chain, executor, and implementation failures into structured results with audit metadata.
 - [x] Add stable dispatcher, tool-execution, and timeout error codes; propagate cancellation without converting it into a result.
+- [x] Use one injected clock for audit start and completion timestamps across default runtime wiring.
 - [/] Improve core and formula validation diagnostics while preserving stable public error contracts.
 - [/] Define which `CapabilityStatus` values are informational and which block execution.
 - [/] Decide whether `ContractSchema` is descriptive metadata or an enforced runtime contract; prefer validation before execution.

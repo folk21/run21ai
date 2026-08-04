@@ -172,6 +172,10 @@ Every final `ToolResult` contains `AuditMetadata` with snapshots of:
 
 Snapshots preserve the meaning of a result even if registry entries later change.
 
+Audit timestamps are created only through `AuditMetadataFactory`. Default runtime wiring injects one
+`Clock` into the execution service and tool executors, so successful, failed, and rejected results use
+the same deterministic time source. `AuditMetadata` has no system-time default.
+
 ## Formula Tool
 
 The first concrete tool is:

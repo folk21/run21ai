@@ -87,7 +87,7 @@ class DefaultToolExecutor(
             )
         }
 
-        val startedAt = java.time.Instant.now()
+        val startedAt = auditMetadataFactory.now()
 
         return try {
             val output = implementation.execute(request)

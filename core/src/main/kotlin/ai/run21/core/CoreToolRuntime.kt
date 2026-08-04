@@ -12,6 +12,7 @@ import ai.run21.core.model.ToolDescriptor
 import ai.run21.core.model.ToolResult
 import ai.run21.core.registry.InMemoryToolExecutorRegistry
 import ai.run21.core.registry.InMemoryToolRegistry
+import java.time.Clock
 
 /**
  * Tool descriptors and executors that can be installed into a core runtime.
@@ -117,11 +118,13 @@ class CoreToolRuntime(
             tools: Iterable<ToolDescriptor>,
             executors: Iterable<ToolExecutor>,
             dispatcherChain: DispatcherChain = CoreDefaults.structuredDirectDispatcherChain(),
+            clock: Clock = Clock.systemUTC(),
         ): CoreToolRuntime =
             inMemoryAssembly(
                 tools = tools,
                 executors = executors,
                 dispatcherChain = dispatcherChain,
+                clock = clock,
             ).runtime
 
         /**
@@ -130,11 +133,13 @@ class CoreToolRuntime(
         fun inMemory(
             registration: CoreToolRegistration,
             dispatcherChain: DispatcherChain = CoreDefaults.structuredDirectDispatcherChain(),
+            clock: Clock = Clock.systemUTC(),
         ): CoreToolRuntime =
             inMemory(
                 tools = registration.tools,
                 executors = registration.executors,
                 dispatcherChain = dispatcherChain,
+                clock = clock,
             )
 
         /**
@@ -149,6 +154,7 @@ class CoreToolRuntime(
             tools: Iterable<ToolDescriptor>,
             executors: Iterable<ToolExecutor>,
             dispatcherChain: DispatcherChain = CoreDefaults.structuredDirectDispatcherChain(),
+            clock: Clock = Clock.systemUTC(),
         ): CoreToolRuntimeAssembly {
             val toolRegistry = InMemoryToolRegistry(tools)
             val executorRegistry = InMemoryToolExecutorRegistry(executors)
@@ -156,6 +162,7 @@ class CoreToolRuntime(
                 dispatcherChain = dispatcherChain,
                 toolRegistry = toolRegistry,
                 executorRegistry = executorRegistry,
+                clock = clock,
             )
 
             return CoreToolRuntimeAssembly(
@@ -172,11 +179,13 @@ class CoreToolRuntime(
         fun inMemoryAssembly(
             registration: CoreToolRegistration,
             dispatcherChain: DispatcherChain = CoreDefaults.structuredDirectDispatcherChain(),
+            clock: Clock = Clock.systemUTC(),
         ): CoreToolRuntimeAssembly =
             inMemoryAssembly(
                 tools = registration.tools,
                 executors = registration.executors,
                 dispatcherChain = dispatcherChain,
+                clock = clock,
             )
     }
 }
