@@ -13,6 +13,7 @@ import ai.run21.core.model.ToolExecutionOutput
 import ai.run21.core.model.ToolImplementationDescriptor
 import ai.run21.core.model.ToolImplementationType
 import ai.run21.core.model.ToolRequest
+import ai.run21.core.registry.InMemoryToolImplementationRegistry
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.coroutines.startCoroutine
@@ -85,6 +86,18 @@ internal class EchoImplementation(
         outputPayload = mapOf(outputKey to request.inputPayload),
     )
 }
+
+
+/** Creates an implementation registry with an explicit default for deterministic tests. */
+internal fun defaultImplementationRegistry(
+    defaultImplementation: ToolImplementation,
+    vararg additionalImplementations: ToolImplementation,
+): InMemoryToolImplementationRegistry = InMemoryToolImplementationRegistry(
+    implementations = listOf(defaultImplementation) + additionalImplementations,
+    defaultImplementations = mapOf(
+        defaultImplementation.descriptor.toolCode to defaultImplementation.descriptor.implementationCode,
+    ),
+)
 
 /**
  * Runs suspend functions synchronously in tests without adding a coroutine runtime dependency to

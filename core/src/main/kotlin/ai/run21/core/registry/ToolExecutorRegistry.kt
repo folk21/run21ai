@@ -51,14 +51,11 @@ class InMemoryToolExecutorRegistry(
         executors.forEach(::register)
     }
 
-    /**
-     * Registers or replaces an executor for its declared tool code.
-     *
-     * Replacement is intentional for in-memory composition: later registration wins for the same
-     * tool code. Registering an executor here does not register a tool descriptor in
-     * `ToolRegistry`; both registries must be wired consistently by the runtime.
-     */
+    /** Registers an executor and rejects duplicate tool codes. */
     fun register(executor: ToolExecutor) {
+        require(executor.toolCode !in executorsByToolCode) {
+            "Duplicate tool executor registration: ${executor.toolCode.value}."
+        }
         executorsByToolCode[executor.toolCode] = executor
     }
 

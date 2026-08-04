@@ -49,7 +49,7 @@ class ToolExecutionContractTest {
         // Arrange a minimal runtime: pass-through dispatching, one tool descriptor, one executor,
         // and one deterministic implementation.
         val descriptor = testToolDescriptor()
-        val implementationRegistry = InMemoryToolImplementationRegistry(listOf(EchoImplementation()))
+        val implementationRegistry = defaultImplementationRegistry(EchoImplementation())
         val executor = DefaultToolExecutor(descriptor, implementationRegistry)
         val service = DefaultToolExecutionService(
             dispatcherChain = CoreDefaults.structuredDirectDispatcherChain(),
@@ -94,7 +94,7 @@ class ToolExecutionContractTest {
             ),
             toolRegistry = InMemoryToolRegistry(listOf(descriptor)),
             executorRegistry = InMemoryToolExecutorRegistry(
-                listOf(DefaultToolExecutor(descriptor, InMemoryToolImplementationRegistry(listOf(EchoImplementation())))),
+                listOf(DefaultToolExecutor(descriptor, defaultImplementationRegistry(EchoImplementation()))),
             ),
         )
         val result = runSuspend {
@@ -119,7 +119,7 @@ class ToolExecutionContractTest {
             dispatcherChain = CoreDefaults.structuredDirectDispatcherChain(),
             toolRegistry = InMemoryToolRegistry(listOf(descriptor)),
             executorRegistry = InMemoryToolExecutorRegistry(
-                listOf(DefaultToolExecutor(descriptor, InMemoryToolImplementationRegistry(listOf(implementation)))),
+                listOf(DefaultToolExecutor(descriptor, defaultImplementationRegistry(implementation))),
             ),
         )
 
@@ -207,7 +207,12 @@ class ToolExecutionContractTest {
                 listOf(
                     DefaultToolExecutor(
                         descriptor,
-                        InMemoryToolImplementationRegistry(listOf(firstImplementation, secondImplementation)),
+                        InMemoryToolImplementationRegistry(
+                            implementations = listOf(firstImplementation, secondImplementation),
+                            defaultImplementations = mapOf(
+                                testToolCode() to firstImplementation.descriptor.implementationCode,
+                            ),
+                        ),
                     ),
                 ),
             ),
@@ -260,7 +265,7 @@ class ToolExecutionContractTest {
         val descriptor = testToolDescriptor()
         val executor = DefaultToolExecutor(
             descriptor = descriptor,
-            implementationRegistry = InMemoryToolImplementationRegistry(listOf(EchoImplementation())),
+            implementationRegistry = defaultImplementationRegistry(EchoImplementation()),
         )
 
         val result = runSuspend {
@@ -288,7 +293,7 @@ class ToolExecutionContractTest {
         }
         val executor = DefaultToolExecutor(
             descriptor = descriptor,
-            implementationRegistry = InMemoryToolImplementationRegistry(listOf(EchoImplementation())),
+            implementationRegistry = defaultImplementationRegistry(EchoImplementation()),
             validator = validator,
         )
 
@@ -307,7 +312,7 @@ class ToolExecutionContractTest {
         val descriptor = testToolDescriptor()
         val executor = DefaultToolExecutor(
             descriptor = descriptor,
-            implementationRegistry = InMemoryToolImplementationRegistry(listOf(ThrowingImplementation())),
+            implementationRegistry = defaultImplementationRegistry(ThrowingImplementation()),
         )
 
         val result = runSuspend { executor.execute(testToolRequest()) }
@@ -326,7 +331,7 @@ class ToolExecutionContractTest {
         val descriptor = testToolDescriptor()
         val executor = DefaultToolExecutor(
             descriptor = descriptor,
-            implementationRegistry = InMemoryToolImplementationRegistry(listOf(TimeoutImplementation())),
+            implementationRegistry = defaultImplementationRegistry(TimeoutImplementation()),
         )
 
         val result = runSuspend { executor.execute(testToolRequest()) }
@@ -342,7 +347,7 @@ class ToolExecutionContractTest {
         val descriptor = testToolDescriptor()
         val executor = DefaultToolExecutor(
             descriptor = descriptor,
-            implementationRegistry = InMemoryToolImplementationRegistry(listOf(CancellingImplementation())),
+            implementationRegistry = defaultImplementationRegistry(CancellingImplementation()),
         )
 
         val error = assertFailsWith<CancellationException> {

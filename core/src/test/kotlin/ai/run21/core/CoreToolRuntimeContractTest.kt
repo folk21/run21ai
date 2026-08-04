@@ -15,8 +15,11 @@ import ai.run21.core.model.StructuredDispatchInput
 import ai.run21.core.registry.InMemoryToolExecutorRegistry
 import ai.run21.core.registry.InMemoryToolImplementationRegistry
 import ai.run21.core.registry.InMemoryToolRegistry
+import ai.run21.core.registry.RegistryAssemblyException
+import ai.run21.core.registry.RegistryAssemblyIssueCode
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 
 /**
  * Verifies the root-level facade over the core execution pipeline.
@@ -48,7 +51,7 @@ class CoreToolRuntimeContractTest {
             executors = listOf(
                 DefaultToolExecutor(
                     descriptor,
-                    InMemoryToolImplementationRegistry(listOf(EchoImplementation())),
+                    defaultImplementationRegistry(EchoImplementation()),
                 ),
             ),
         )
@@ -65,6 +68,128 @@ class CoreToolRuntimeContractTest {
         assertEquals(ExecutionStatus.SUCCEEDED, result.status)
         assertEquals(mapOf("echo" to mapOf("value" to 21)), result.outputPayload)
         assertEquals("pass-through", result.auditMetadata.dispatcherTrace.steps.single().dispatcherCode.value)
+    }
+
+
+    @Test
+    fun `in-memory assembly exposes validated registry snapshot`() {
+        val descriptor = testToolDescriptor()
+        val implementation = EchoImplementation()
+        val assembly = CoreToolRuntime.inMemoryAssembly(
+            tools = listOf(descriptor),
+            executors = listOf(
+                DefaultToolExecutor(descriptor, defaultImplementationRegistry(implementation)),
+            ),
+        )
+
+        assertEquals(1, assembly.registryAssembly.toolCount)
+        assertEquals(1, assembly.registryAssembly.executorCount)
+        assertEquals(1, assembly.registryAssembly.implementationCount)
+        assertEquals(
+            implementation.descriptor.implementationCode,
+            assembly.registryAssembly.defaultImplementations[descriptor.code],
+        )
+        assertEquals(true, assembly.registryValidation().valid)
+    }
+
+    @Test
+    fun `in-memory assembly reports duplicate tool descriptors before registry construction`() {
+        val descriptor = testToolDescriptor()
+        val executor = DefaultToolExecutor(
+            descriptor,
+            defaultImplementationRegistry(EchoImplementation()),
+        )
+
+        val error = assertFailsWith<RegistryAssemblyException> {
+            CoreToolRuntime.inMemoryAssembly(
+                tools = listOf(descriptor, descriptor.copy(name = "Duplicate Tool")),
+                executors = listOf(executor),
+            )
+        }
+
+        assertEquals(
+            RegistryAssemblyIssueCode.DUPLICATE_TOOL,
+            error.issues.single { it.code == RegistryAssemblyIssueCode.DUPLICATE_TOOL }.code,
+        )
+    }
+
+    @Test
+    fun `registry validation detects graph drift after assembly`() {
+        val descriptor = testToolDescriptor()
+        val assembly = CoreToolRuntime.inMemoryAssembly(
+            tools = listOf(descriptor),
+            executors = listOf(
+                DefaultToolExecutor(descriptor, defaultImplementationRegistry(EchoImplementation())),
+            ),
+        )
+        val addedTool = testToolDescriptor(ai.run21.core.model.ToolCode("added-tool"))
+
+        assembly.toolRegistry.register(addedTool)
+
+        val validation = assembly.registryValidation()
+        assertEquals(false, validation.valid)
+        assertEquals(
+            RegistryAssemblyIssueCode.MISSING_EXECUTOR,
+            validation.issues.single { it.toolCode == addedTool.code }.code,
+        )
+    }
+
+    @Test
+    fun `in-memory assembly fails when a descriptor has no executor`() {
+        val error = assertFailsWith<RegistryAssemblyException> {
+            CoreToolRuntime.inMemoryAssembly(
+                tools = listOf(testToolDescriptor()),
+                executors = emptyList(),
+            )
+        }
+
+        assertEquals(
+            listOf(RegistryAssemblyIssueCode.MISSING_EXECUTOR),
+            error.issues.filter { it.code == RegistryAssemblyIssueCode.MISSING_EXECUTOR }.map { it.code },
+        )
+    }
+
+    @Test
+    fun `in-memory assembly fails when default implementation is not explicit`() {
+        val descriptor = testToolDescriptor()
+        val executor = DefaultToolExecutor(
+            descriptor = descriptor,
+            implementationRegistry = InMemoryToolImplementationRegistry(listOf(EchoImplementation())),
+        )
+
+        val error = assertFailsWith<RegistryAssemblyException> {
+            CoreToolRuntime.inMemoryAssembly(
+                tools = listOf(descriptor),
+                executors = listOf(executor),
+            )
+        }
+
+        assertEquals(
+            RegistryAssemblyIssueCode.DEFAULT_IMPLEMENTATION_MISSING,
+            error.issues.single { it.code == RegistryAssemblyIssueCode.DEFAULT_IMPLEMENTATION_MISSING }.code,
+        )
+    }
+
+    @Test
+    fun `in-memory assembly rejects executors without registration metadata`() {
+        val descriptor = testToolDescriptor()
+        val executor = object : ai.run21.core.execution.ToolExecutor {
+            override val toolCode = descriptor.code
+            override suspend fun execute(request: ai.run21.core.model.ToolRequest) =
+                error("Not executed during assembly validation.")
+        }
+
+        val error = assertFailsWith<RegistryAssemblyException> {
+            CoreToolRuntime.inMemoryAssembly(
+                tools = listOf(descriptor),
+                executors = listOf(executor),
+            )
+        }
+
+        assertEquals(
+            RegistryAssemblyIssueCode.EXECUTOR_REGISTRATION_MISSING,
+            error.issues.single().code,
+        )
     }
 
     @Test
@@ -105,7 +230,7 @@ class CoreToolRuntimeContractTest {
             dispatcherChain = CoreDefaults.structuredDirectDispatcherChain(),
             toolRegistry = InMemoryToolRegistry(listOf(descriptor)),
             executorRegistry = InMemoryToolExecutorRegistry(
-                listOf(DefaultToolExecutor(descriptor, InMemoryToolImplementationRegistry(listOf(EchoImplementation())))),
+                listOf(DefaultToolExecutor(descriptor, defaultImplementationRegistry(EchoImplementation()))),
             ),
         )
     }
@@ -134,7 +259,7 @@ class CoreToolRuntimeContractTest {
             ),
             toolRegistry = InMemoryToolRegistry(listOf(descriptor)),
             executorRegistry = InMemoryToolExecutorRegistry(
-                listOf(DefaultToolExecutor(descriptor, InMemoryToolImplementationRegistry(listOf(EchoImplementation())))),
+                listOf(DefaultToolExecutor(descriptor, defaultImplementationRegistry(EchoImplementation()))),
             ),
         )
     }

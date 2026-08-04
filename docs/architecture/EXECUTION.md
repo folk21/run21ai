@@ -106,10 +106,30 @@ After dispatch accepts a request:
 |---|---|---|
 | `ToolRegistry` | `ToolDescriptor` values | Declares whether a tool exists and exposes its contract |
 | `ToolExecutorRegistry` | One executor per tool code | Selects the tool-level execution coordinator |
-| `ToolImplementationRegistry` | Implementations grouped by tool | Selects an exact implementation or the current in-memory default |
+| `ToolImplementationRegistry` | Implementations grouped by tool | Selects an exact implementation or an explicitly registered default |
 | `DispatcherChainRegistry` | Named dispatcher-chain profiles | Optional runtime-level profile lookup |
 
-In-memory registries are suitable for tests and current runtime profiles. Persistence-backed registries may be added outside core without changing these interfaces.
+In-memory registries are suitable for tests and current runtime profiles. They reject duplicate registrations instead of silently replacing existing entries. Persistence-backed registries may be added outside core without changing these interfaces.
+
+### Standard Runtime Assembly
+
+`CoreToolRuntime.inMemoryAssembly(...)` validates registration before constructing registries and the execution service. The assembly fails fast when it finds duplicate codes, missing descriptors or executors, unavailable executor registration metadata, missing implementations, tool/implementation mismatches, or a missing/unregistered default implementation.
+
+`ToolExecutor.registration` exposes the implementation descriptors and explicit default required by this validation. `DefaultToolExecutor` derives this metadata from its `ToolImplementationRegistry`. Custom executors can still be used through lower-level services, but must expose registration metadata to participate in the standard assembly.
+
+The validated assembly stores a `RegistryAssemblySnapshot` with tool, executor, and implementation counts plus the explicit default for each tool. `registryValidation()` can re-check the current in-memory graph for readiness reporting.
+
+## Readiness
+
+REST readiness is broader than process liveness:
+
+- the registration graph is revalidated;
+- descriptor, executor, and implementation counts plus explicit default selections are reported;
+- configured runtime dependencies contribute separate readiness checks;
+- the Ollama profile checks `/api/tags` and verifies that the configured model is installed;
+- any failed component returns HTTP `503` with redacted reason metadata.
+
+`/health` remains a process-liveness endpoint and does not validate runtime dependencies.
 
 ## Validation
 
@@ -191,4 +211,4 @@ The formula module owns its descriptor, input validation, implementation, and wi
 
 ## Unsupported and Future States
 
-Core provides controlled defaults for missing dispatch and execution support and normalizes unexpected component failures. The project still needs explicit default-implementation policy, registration consistency checks, execution budgets, and transport-level JSON value validation. These are implementation gaps, not alternative architectural models.
+Core provides controlled defaults for missing dispatch and execution support, normalizes unexpected component failures, validates standard runtime assembly, and requires explicit implementation defaults. The project still needs execution budgets and transport-level JSON value validation. These are implementation gaps, not alternative architectural models.

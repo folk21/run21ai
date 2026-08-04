@@ -61,7 +61,7 @@ class MockLlmDispatcherContractTest {
                 listOf(
                     DefaultToolExecutor(
                         descriptor = descriptor,
-                        implementationRegistry = InMemoryToolImplementationRegistry(listOf(implementation)),
+                        implementationRegistry = defaultImplementationRegistry(implementation),
                     ),
                 ),
             ),

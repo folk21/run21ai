@@ -25,7 +25,12 @@ data class LocalRuntimeToolRegistration(
         ): LocalRuntimeToolRegistration {
             val descriptor = FormulaToolDescriptorFactory.create()
             val implementation = EvalExFormulaToolImplementation()
-            val implementationRegistry = InMemoryToolImplementationRegistry(listOf(implementation))
+            val implementationRegistry = InMemoryToolImplementationRegistry(
+                implementations = listOf(implementation),
+                defaultImplementations = mapOf(
+                    implementation.descriptor.toolCode to implementation.descriptor.implementationCode,
+                ),
+            )
             val executor = DefaultToolExecutor(
                 descriptor = descriptor,
                 implementationRegistry = implementationRegistry,

@@ -117,7 +117,7 @@ class ToolCallsContractTest {
                 listOf(
                     DefaultToolExecutor(
                         descriptor = descriptor,
-                        implementationRegistry = InMemoryToolImplementationRegistry(listOf(implementation)),
+                        implementationRegistry = defaultImplementationRegistry(implementation),
                     ),
                 ),
             ),
@@ -171,7 +171,7 @@ class ToolCallsContractTest {
                 listOf(
                     DefaultToolExecutor(
                         descriptor = descriptor,
-                        implementationRegistry = InMemoryToolImplementationRegistry(listOf(implementation)),
+                        implementationRegistry = defaultImplementationRegistry(implementation),
                     ),
                 ),
             ),

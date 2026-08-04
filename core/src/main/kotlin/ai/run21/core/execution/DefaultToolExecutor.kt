@@ -24,6 +24,13 @@ class DefaultToolExecutor(
 ) : ToolExecutor {
     override val toolCode: ToolCode = descriptor.code
 
+    override val registration: ToolExecutorRegistration
+        get() = ToolExecutorRegistration(
+            toolCode = toolCode,
+            implementations = implementationRegistry.allFor(toolCode).map { it.descriptor },
+            defaultImplementation = implementationRegistry.defaultImplementation(toolCode),
+        )
+
     /**
      * Executes a validated request for this executor's tool.
      *

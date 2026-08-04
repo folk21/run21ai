@@ -1,16 +1,10 @@
 package ai.run21.dispatchers.llm.ollama
 
-import kotlinx.coroutines.suspendCancellableCoroutine
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.nio.charset.StandardCharsets
-import java.util.concurrent.CompletableFuture
-import java.util.concurrent.CompletionException
-import java.util.concurrent.ExecutionException
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
 
 /**
  * Asynchronous Java HttpClient transport for Ollama's `/api/chat` endpoint.
@@ -73,26 +67,6 @@ class JavaHttpOllamaTransport(
         }
     }
 }
-
-private suspend fun <T> CompletableFuture<T>.awaitCancellable(): T =
-    suspendCancellableCoroutine { continuation ->
-        whenComplete { value, failure ->
-            if (failure == null) {
-                continuation.resume(value)
-            } else {
-                continuation.resumeWithException(failure.unwrapCompletionFailure())
-            }
-        }
-        continuation.invokeOnCancellation {
-            cancel(true)
-        }
-    }
-
-private fun Throwable.unwrapCompletionFailure(): Throwable =
-    when (this) {
-        is CompletionException, is ExecutionException -> cause ?: this
-        else -> this
-    }
 
 private fun Throwable.redactedTypeName(): String =
     unwrapCompletionFailure().javaClass.simpleName.ifBlank { "UnknownFailure" }

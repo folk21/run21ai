@@ -36,6 +36,9 @@ When documentation conflicts with code, verify the behavior, fix the owning docu
 - Never let an LLM calculate the final business result or bypass `ToolExecutor`, audit metadata, validation, or runtime policy.
 - Treat calculation-like behavior as a tool, not as a special execution subsystem.
 - Prefer explicit code-based registration over reflection or implicit classpath discovery.
+- Treat duplicate tool, executor, and implementation registrations as startup errors; do not rely on replacement order.
+- Require an explicit default implementation for every executor in the standard runtime assembly.
+- Keep readiness checks aligned with the complete registration graph and required runtime dependencies.
 - Add abstractions only after at least two concrete use cases require them.
 
 ## Terminology
@@ -92,6 +95,7 @@ Prefer `ToolCalls.execute(...)` for structured contract scenarios and `ToolCalls
 - Keep HTTP DTOs and mapping in the REST runtime.
 - Keep provider-specific LLM transport and prompt resources in the provider adapter module.
 - Register a new tool through the existing core registration model before adding new registration abstractions.
+- Expose executor registration metadata when a custom executor participates in the standard in-memory assembly.
 - Update the OpenAPI resource and REST tests together when the HTTP contract changes.
 
 ## LLM Changes

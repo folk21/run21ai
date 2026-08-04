@@ -79,7 +79,7 @@ Supported environment variables:
 | `RUN21_LLM_TEMPERATURE` | `0.0` | Ollama generation temperature |
 | `RUN21_DISPATCHER_DEBUG` | `false` | Prints redacted dispatcher transport metadata without prompt or response bodies |
 
-The current Ollama adapter supports formula request preparation only. See [LLM Dispatch](architecture/LLM_DISPATCH.md) for the boundary and limitations.
+The current Ollama adapter supports formula request preparation only. The `/ready` endpoint calls Ollama's `/api/tags` endpoint and returns `503` until the server is reachable and `RUN21_LLM_MODEL` is installed. See [LLM Dispatch](architecture/LLM_DISPATCH.md) for the boundary and limitations.
 
 ## Rust CLI
 

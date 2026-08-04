@@ -7,3 +7,8 @@ def test_ready_returns_200_and_runtime_checks(api_client: Run21ApiClient) -> Non
 
     assert body["status"] == "ready"
     assert body["tools"] >= 1
+    assert body["executors"] >= 1
+    assert body["implementations"] >= 1
+    registry = next(check for check in body["checks"] if check["name"] == "registry-assembly")
+    assert registry["status"] == "ready"
+    assert registry["details"]["defaultImplementations"]

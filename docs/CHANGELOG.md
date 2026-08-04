@@ -25,6 +25,10 @@ This file records completed repository-level changes. Future work belongs in [Ro
 - Replaced the implicit system-time default of `AuditMetadata.completedAt` with a deterministic `startedAt` fallback.
 - Replaced blocking Ollama HTTP calls with cancellable `HttpClient.sendAsync()` transport execution.
 - Replaced raw Ollama request/response debug output with redacted operational metadata.
+- Made in-memory tool, executor, and implementation registration fail fast on duplicate codes.
+- Added standard runtime assembly validation for descriptor, executor, implementation, and explicit-default consistency.
+- Replaced registration-order default selection with explicit per-tool default implementations.
+- Expanded REST readiness to report registry counts and component checks, including Ollama reachability and configured-model availability.
 
 ### Removed
 

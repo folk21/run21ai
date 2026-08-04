@@ -61,12 +61,21 @@ fun Application.run21RestApi(runtime: RestApiRuntime = RestApiRuntimeFactory.for
         }
 
         get("/ready") {
-            val status = if (runtime.isReady()) HttpStatusCode.OK else HttpStatusCode.ServiceUnavailable
+            val readiness = runtime.readiness()
             call.respond(
-                status,
+                if (readiness.ready) HttpStatusCode.OK else HttpStatusCode.ServiceUnavailable,
                 ReadyResponseDto(
-                    status = if (runtime.isReady()) "ready" else "not_ready",
-                    tools = runtime.toolRegistry.all().size,
+                    status = if (readiness.ready) "ready" else "not_ready",
+                    tools = readiness.tools,
+                    executors = readiness.executors,
+                    implementations = readiness.implementations,
+                    checks = readiness.checks.map { check ->
+                        ReadinessCheckDto(
+                            name = check.name,
+                            status = if (check.ready) "ready" else "not_ready",
+                            details = check.details,
+                        )
+                    },
                 ),
             )
         }

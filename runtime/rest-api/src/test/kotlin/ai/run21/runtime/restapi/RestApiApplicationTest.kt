@@ -32,18 +32,61 @@ class RestApiApplicationTest {
      * Verifies that infrastructure endpoints are available without requiring a tool request.
      */
     @Test
-    fun `health and readiness endpoints report local runtime state`() = testApplication {
+    fun `health and readiness endpoints report complete local runtime state`() = testApplication {
         application {
             run21RestApi()
         }
+        val jsonClient = jsonClient()
 
         val health = client.get("/health")
-        val ready = client.get("/ready")
+        val ready = jsonClient.get("/ready")
 
         assertEquals(HttpStatusCode.OK, health.status)
         assertTrue(health.bodyAsText().contains("\"status\":\"ok\""))
         assertEquals(HttpStatusCode.OK, ready.status)
-        assertTrue(ready.bodyAsText().contains("\"status\":\"ready\""))
+
+        val readiness = ready.body<ReadyResponseDto>()
+        assertEquals("ready", readiness.status)
+        assertEquals(1, readiness.tools)
+        assertEquals(1, readiness.executors)
+        assertEquals(1, readiness.implementations)
+        val registryCheck = readiness.checks.single { it.name == "registry-assembly" }
+        assertEquals("ready", registryCheck.status)
+        assertEquals(
+            mapOf(FormulaTool.TOOL_CODE.value to FormulaTool.IMPLEMENTATION_CODE.value),
+            registryCheck.details["defaultImplementations"],
+        )
+    }
+
+    @Test
+    fun `readiness endpoint returns 503 when a runtime dependency is unavailable`() = testApplication {
+        val runtime = RestApiRuntimeFactory.formulaOnly().copy(
+            readinessChecks = listOf(
+                object : RuntimeReadinessCheck {
+                    override val name: String = "external-test"
+
+                    override suspend fun check(): RuntimeReadinessCheckResult = RuntimeReadinessCheckResult(
+                        name = name,
+                        ready = false,
+                        details = mapOf("reason" to "unavailable"),
+                    )
+                },
+            ),
+        )
+        application {
+            run21RestApi(runtime)
+        }
+        val client = jsonClient()
+
+        val response = client.get("/ready")
+
+        assertEquals(HttpStatusCode.ServiceUnavailable, response.status)
+        val readiness = response.body<ReadyResponseDto>()
+        assertEquals("not_ready", readiness.status)
+        assertEquals(
+            "unavailable",
+            readiness.checks.single { it.name == "external-test" }.details["reason"],
+        )
     }
 
     /**

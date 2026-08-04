@@ -71,12 +71,20 @@ data class HealthResponseDto(
     val status: String,
 )
 
-/**
- * Readiness response with the number of registered tool descriptors visible to the API runtime.
- */
+/** Complete readiness response for registration state and runtime dependencies. */
 data class ReadyResponseDto(
     val status: String,
     val tools: Int,
+    val executors: Int,
+    val implementations: Int,
+    val checks: List<ReadinessCheckDto>,
+)
+
+/** One readiness component exposed by the REST API. */
+data class ReadinessCheckDto(
+    val name: String,
+    val status: String,
+    val details: Map<String, Any?> = emptyMap(),
 )
 
 /**

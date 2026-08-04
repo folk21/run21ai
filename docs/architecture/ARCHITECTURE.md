@@ -58,6 +58,17 @@ The recommended application-level entry points are:
 
 Tool registration is explicit and code-based. A tool module provides descriptors and executors through `CoreToolRegistration`; runtimes compose registrations and dispatcher profiles.
 
+The standard in-memory assembly validates the complete graph before creating a runtime:
+
+- tool and executor codes are unique;
+- every tool has exactly one executor;
+- every executor belongs to a registered tool;
+- executor registration metadata exposes at least one implementation;
+- implementation descriptors belong to the executor's tool;
+- one registered implementation is selected explicitly as the default.
+
+Invalid assembly throws `RegistryAssemblyException` before the runtime accepts traffic. Registration order is not a default-selection or replacement policy.
+
 The current formula registration is owned by `FormulaToolWiring`. Runtime modules should consume it rather than rebuild descriptor, implementation registry, executor, and validator wiring.
 
 ## Deployment Profiles

@@ -25,6 +25,35 @@ The default base URL is `http://127.0.0.1:8080`.
 
 The source of truth for request and response shapes is [`runtime/rest-api/src/main/resources/openapi.yaml`](../runtime/rest-api/src/main/resources/openapi.yaml).
 
+### Readiness
+
+`GET /ready` validates the current registry assembly and configured runtime dependencies. A ready formula-only profile returns counts and component results:
+
+```json
+{
+  "status": "ready",
+  "tools": 1,
+  "executors": 1,
+  "implementations": 1,
+  "checks": [
+    {
+      "name": "registry-assembly",
+      "status": "ready",
+      "details": {
+        "tools": 1,
+        "executors": 1,
+        "implementations": 1,
+        "defaultImplementations": {
+          "formula.evaluate": "formula-evalex-v1"
+        }
+      }
+    }
+  ]
+}
+```
+
+The Ollama profile adds an `ollama` check. It returns `not_ready` and HTTP `503` when Ollama is unavailable, the check times out, the response is invalid, or the configured model is not installed. Readiness details use stable reason values and do not expose provider response bodies or exception messages.
+
 ### Structured Execution
 
 ```bash

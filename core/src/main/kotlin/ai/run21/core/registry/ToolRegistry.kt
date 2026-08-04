@@ -53,14 +53,11 @@ class InMemoryToolRegistry(
         descriptors.forEach(::register)
     }
 
-    /**
-     * Registers or replaces a tool descriptor by its tool code.
-     *
-     * Replacement is intentional for in-memory composition: later registration wins for the same
-     * tool code. The registry only stores descriptors and does not automatically register an
-     * executor or implementation.
-     */
+    /** Registers a descriptor and rejects duplicate tool codes. */
     fun register(descriptor: ToolDescriptor) {
+        require(descriptor.code !in descriptorsByCode) {
+            "Duplicate tool descriptor registration: ${descriptor.code.value}."
+        }
         descriptorsByCode[descriptor.code] = descriptor
     }
 

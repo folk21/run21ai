@@ -39,7 +39,7 @@ class AuditMetadataContractTest {
             dispatcherChain = CoreDefaults.structuredDirectDispatcherChain(),
             toolRegistry = InMemoryToolRegistry(listOf(descriptor)),
             executorRegistry = InMemoryToolExecutorRegistry(
-                listOf(DefaultToolExecutor(descriptor, InMemoryToolImplementationRegistry(listOf(EchoImplementation())))),
+                listOf(DefaultToolExecutor(descriptor, defaultImplementationRegistry(EchoImplementation()))),
             ),
         )
 
@@ -90,7 +90,7 @@ class AuditMetadataContractTest {
             dispatcherChain = CoreDefaults.structuredDirectDispatcherChain(),
             toolRegistry = InMemoryToolRegistry(listOf(descriptor)),
             executorRegistry = InMemoryToolExecutorRegistry(
-                listOf(DefaultToolExecutor(descriptor, InMemoryToolImplementationRegistry(listOf(EchoImplementation())))),
+                listOf(DefaultToolExecutor(descriptor, defaultImplementationRegistry(EchoImplementation()))),
             ),
         )
 
@@ -120,7 +120,7 @@ class AuditMetadataContractTest {
         val descriptor = testToolDescriptor()
         val executor = DefaultToolExecutor(
             descriptor = descriptor,
-            implementationRegistry = InMemoryToolImplementationRegistry(listOf(EchoImplementation())),
+            implementationRegistry = defaultImplementationRegistry(EchoImplementation()),
             auditMetadataFactory = auditMetadataFactory,
         )
         val service = DefaultToolExecutionService(

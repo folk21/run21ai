@@ -12,6 +12,9 @@ import ai.run21.core.model.ToolDescriptor
 import ai.run21.core.model.ToolResult
 import ai.run21.core.registry.InMemoryToolExecutorRegistry
 import ai.run21.core.registry.InMemoryToolRegistry
+import ai.run21.core.registry.RegistryAssemblySnapshot
+import ai.run21.core.registry.RegistryAssemblyValidation
+import ai.run21.core.registry.RegistryAssemblyValidator
 import java.time.Clock
 
 /**
@@ -38,7 +41,12 @@ data class CoreToolRuntimeAssembly(
     val dispatcherChain: DispatcherChain,
     val toolRegistry: InMemoryToolRegistry,
     val executorRegistry: InMemoryToolExecutorRegistry,
-)
+    val registryAssembly: RegistryAssemblySnapshot,
+) {
+    /** Revalidates the current in-memory registration graph for readiness reporting. */
+    fun registryValidation(): RegistryAssemblyValidation =
+        RegistryAssemblyValidator.inspect(toolRegistry.all(), executorRegistry.all())
+}
 
 /**
  * Root-level facade for calling a configured core tool execution pipeline.
@@ -156,8 +164,11 @@ class CoreToolRuntime(
             dispatcherChain: DispatcherChain = CoreDefaults.structuredDirectDispatcherChain(),
             clock: Clock = Clock.systemUTC(),
         ): CoreToolRuntimeAssembly {
-            val toolRegistry = InMemoryToolRegistry(tools)
-            val executorRegistry = InMemoryToolExecutorRegistry(executors)
+            val toolList = tools.toList()
+            val executorList = executors.toList()
+            val registryAssembly = RegistryAssemblyValidator.requireValid(toolList, executorList)
+            val toolRegistry = InMemoryToolRegistry(toolList)
+            val executorRegistry = InMemoryToolExecutorRegistry(executorList)
             val service = DefaultToolExecutionService(
                 dispatcherChain = dispatcherChain,
                 toolRegistry = toolRegistry,
@@ -170,6 +181,7 @@ class CoreToolRuntime(
                 dispatcherChain = dispatcherChain,
                 toolRegistry = toolRegistry,
                 executorRegistry = executorRegistry,
+                registryAssembly = registryAssembly,
             )
         }
 

@@ -34,9 +34,9 @@ Completed release history belongs in [CHANGELOG.md](CHANGELOG.md). This file kee
 - [/] Define which `CapabilityStatus` values are informational and which block execution.
 - [/] Decide whether `ContractSchema` is descriptive metadata or an enforced runtime contract; prefer validation before execution.
 - [ ] Validate that tool inputs and outputs are JSON-compatible before they reach transport serialization.
-- [ ] Make readiness validate the complete registration graph rather than descriptor count only.
+- [x] Make readiness validate the complete registration graph and configured runtime dependencies.
 - [ ] Reject unknown HTTP enum values instead of silently substituting defaults.
-- [/] Make default implementation selection explicit and detect duplicate registrations during runtime assembly.
+- [x] Make default implementation selection explicit and detect duplicate registrations during runtime assembly.
 - [x] Replace blocking Ollama transport calls with asynchronous execution.
 - [x] Redact sensitive prompt and model-response data from dispatcher debug logging.
 - [/] Activate deterministic raw-dispatch system coverage and remove obsolete `xfail` expectations.
