@@ -44,47 +44,40 @@ class LlmDispatcher(
             )
         }
 
-    private suspend fun dispatchRaw(input: RawDispatchInput, context: DispatchContext) =
-        try {
-            val prompt = LlmDispatchPrompt(
-                payload = input.payload,
-                actor = input.actor,
-                source = input.source,
-                correlation = input.correlation,
-                attributes = input.attributes,
-            )
-            when (val response = client.dispatch(prompt)) {
-                is LlmDispatchAccepted -> accept(prompt, response, context)
-                is LlmDispatchRejected -> reject(response, context)
-            }
-        } catch (error: IllegalArgumentException) {
-            DispatchRejected(
-                error = ToolError(
-                    code = ToolErrorCode.INVALID_TOOL_REQUEST,
-                    message = error.message ?: "LLM dispatcher produced invalid structured output.",
-                ),
-                traceStep = DispatcherTraceStep(
-                    dispatcherCode = code,
-                    outcome = DispatchOutcomeType.REJECTED,
-                    outputSummary = "LLM dispatcher produced invalid structured output.",
-                    correlationId = context.correlation.correlationId,
-                ),
-            )
-        } catch (error: Exception) {
-            DispatchRejected(
-                error = ToolError(
-                    code = ToolErrorCode.DISPATCH_REJECTED,
-                    message = "LLM dispatcher failed while preparing a tool request.",
-                    details = mapOf("exception" to error::class.simpleName, "message" to error.message),
-                ),
-                traceStep = DispatcherTraceStep(
-                    dispatcherCode = code,
-                    outcome = DispatchOutcomeType.REJECTED,
-                    outputSummary = "LLM dispatcher failed.",
-                    correlationId = context.correlation.correlationId,
-                ),
-            )
+    private suspend fun dispatchRaw(input: RawDispatchInput, context: DispatchContext): DispatcherOutcome {
+        val prompt = LlmDispatchPrompt(
+            payload = input.payload,
+            actor = input.actor,
+            source = input.source,
+            correlation = input.correlation,
+            attributes = input.attributes,
+        )
+        return when (val response = client.dispatch(prompt)) {
+            is LlmDispatchAccepted -> acceptSafely(prompt, response, context)
+            is LlmDispatchRejected -> reject(response, context)
         }
+    }
+
+    private fun acceptSafely(
+        prompt: LlmDispatchPrompt,
+        response: LlmDispatchAccepted,
+        context: DispatchContext,
+    ): DispatcherOutcome = try {
+        accept(prompt, response, context)
+    } catch (error: IllegalArgumentException) {
+        DispatchRejected(
+            error = ToolError(
+                code = ToolErrorCode.INVALID_TOOL_REQUEST,
+                message = error.message ?: "LLM dispatcher produced invalid structured output.",
+            ),
+            traceStep = DispatcherTraceStep(
+                dispatcherCode = code,
+                outcome = DispatchOutcomeType.REJECTED,
+                outputSummary = "LLM dispatcher produced invalid structured output.",
+                correlationId = context.correlation.correlationId,
+            ),
+        )
+    }
 
     private fun accept(
         prompt: LlmDispatchPrompt,

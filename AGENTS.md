@@ -76,7 +76,9 @@ Before changing `core/src/main/kotlin`:
 - inspect the relevant contract tests in `core/src/test/kotlin`;
 - preserve framework independence;
 - preserve the single execution pipeline;
-- return structured failures for expected unsupported or invalid states;
+- return structured failures for expected unsupported, invalid, timeout, and internal failure states;
+- propagate caller cancellation instead of converting it into a `ToolResult`;
+- do not expose raw exception classes, messages, or stack traces through public `ToolError` details;
 - update tests for every semantic change;
 - update [Execution Contracts](docs/architecture/EXECUTION.md) only when the public contract changes.
 

@@ -1,7 +1,7 @@
 package ai.run21.core.execution
 
 import ai.run21.core.dispatch.DispatcherChain
-import ai.run21.core.model.ActorReference
+import ai.run21.core.failure.toNormalizedToolError
 import ai.run21.core.model.ActorSnapshot
 import ai.run21.core.model.AuditMetadata
 import ai.run21.core.model.DispatchInput
@@ -34,8 +34,22 @@ class DefaultToolExecutionService(
      * tool calls.
      */
     override suspend fun execute(input: DispatchInput): ToolResult {
-        // Dispatching normalizes external input into a ToolRequest or a structured rejection.
-        val chainResult = dispatcherChain.dispatch(input)
+        val chainResult = try {
+            dispatcherChain.dispatch(input)
+        } catch (error: Exception) {
+            val normalizedError = error.toNormalizedToolError(
+                failureCode = ToolErrorCode.DISPATCHER_FAILED,
+                failureMessage = "Dispatcher chain failed while preparing a tool request.",
+                timeoutMessage = "Dispatcher chain timed out while preparing a tool request.",
+                details = mapOf("phase" to "dispatch"),
+            )
+            val rejectedResult = DispatcherChainResult.rejected(normalizedError, input.trace)
+            return ToolResultFactory.rejected(
+                error = normalizedError,
+                auditMetadata = rejectedAuditMetadata(input, rejectedResult),
+            )
+        }
+
         return handleChainResult(input, chainResult)
     }
 
@@ -83,9 +97,27 @@ class DefaultToolExecutionService(
                 auditMetadataFactory = AuditMetadataFactory(clock),
             )
 
-        // The trace from the dispatcher chain is copied into the request immediately before
-        // execution so audit metadata can describe the complete path.
-        return executor.execute(request.copy(dispatcherTrace = chainResult.trace))
+        val executionRequest = request.copy(dispatcherTrace = chainResult.trace)
+        return try {
+            executor.execute(executionRequest)
+        } catch (error: Exception) {
+            val normalizedError = error.toNormalizedToolError(
+                failureCode = ToolErrorCode.TOOL_EXECUTION_FAILED,
+                failureMessage = "Tool executor failed.",
+                timeoutMessage = "Tool executor timed out.",
+                details = mapOf(
+                    "phase" to "tool_execution",
+                    "toolCode" to request.targetTool.value,
+                ),
+            )
+            val auditMetadata = AuditMetadataFactory(clock).create(
+                request = executionRequest,
+                toolDescriptor = descriptor,
+                implementationDescriptor = null,
+                dispatcherTrace = chainResult.trace,
+            )
+            ToolResultFactory.failed(normalizedError, auditMetadata)
+        }
     }
 
     /**

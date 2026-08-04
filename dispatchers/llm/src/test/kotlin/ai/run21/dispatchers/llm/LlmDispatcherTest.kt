@@ -1,5 +1,6 @@
 package ai.run21.dispatchers.llm
 
+import ai.run21.core.dispatch.OrderedDispatcherChain
 import ai.run21.core.dispatch.ToolRequestValidationResult
 import ai.run21.core.dispatch.ToolRequestValidator
 import ai.run21.core.model.DispatchAccepted
@@ -7,6 +8,7 @@ import ai.run21.core.model.DispatchContext
 import ai.run21.core.model.DispatchOutcomeType
 import ai.run21.core.model.DispatchPassed
 import ai.run21.core.model.DispatchRejected
+import ai.run21.core.model.ExecutionStatus
 import ai.run21.core.model.RawDispatchInput
 import ai.run21.core.model.StructuredDispatchInput
 import ai.run21.core.model.ToolCode
@@ -16,8 +18,11 @@ import ai.run21.core.model.ToolRequest
 import ai.run21.testsupport.runSuspend
 import ai.run21.testsupport.testActor
 import ai.run21.testsupport.testSource
+import java.util.concurrent.CancellationException
+import java.util.concurrent.TimeoutException
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 
 /**
@@ -143,21 +148,53 @@ class LlmDispatcherTest {
     }
 
     @Test
-    fun `client exception becomes structured rejection`() {
+    fun `client exception is normalized by dispatcher chain without leaking provider details`() {
         val dispatcher = LlmDispatcher(
             client = LlmDispatchClient {
-                error("Client failed in test.")
+                throw IllegalArgumentException("Sensitive provider detail.")
             },
         )
         val input = rawInput()
 
-        val outcome = runSuspend { dispatcher.dispatch(input, DispatchContext(input.correlation)) }
+        val result = runSuspend { OrderedDispatcherChain(listOf(dispatcher)).dispatch(input) }
 
-        val rejected = assertIs<DispatchRejected>(outcome)
-        assertEquals(ToolErrorCode.DISPATCH_REJECTED, rejected.error.code)
-        assertEquals("LLM dispatcher failed while preparing a tool request.", rejected.error.message)
-        assertEquals("IllegalStateException", rejected.error.details["exception"])
-        assertEquals("Client failed in test.", rejected.error.details["message"])
+        assertEquals(ExecutionStatus.REJECTED, result.status)
+        assertEquals(ToolErrorCode.DISPATCHER_FAILED, result.error?.code)
+        assertEquals("Dispatcher failed while preparing a tool request.", result.error?.message)
+        assertEquals("llm-dispatcher", result.error?.details?.get("dispatcherCode"))
+        assertEquals(false, result.error?.details?.containsKey("exception"))
+        assertEquals(false, result.error?.details?.containsKey("message"))
+    }
+
+    @Test
+    fun `client timeout becomes TIMEOUT through dispatcher chain`() {
+        val dispatcher = LlmDispatcher(
+            client = LlmDispatchClient {
+                throw TimeoutException("Provider timed out.")
+            },
+        )
+        val input = rawInput()
+
+        val result = runSuspend { OrderedDispatcherChain(listOf(dispatcher)).dispatch(input) }
+
+        assertEquals(ExecutionStatus.REJECTED, result.status)
+        assertEquals(ToolErrorCode.TIMEOUT, result.error?.code)
+    }
+
+    @Test
+    fun `client cancellation propagates through dispatcher chain`() {
+        val dispatcher = LlmDispatcher(
+            client = LlmDispatchClient {
+                throw CancellationException("Caller cancelled.")
+            },
+        )
+        val input = rawInput()
+
+        val error = assertFailsWith<CancellationException> {
+            runSuspend { OrderedDispatcherChain(listOf(dispatcher)).dispatch(input) }
+        }
+
+        assertEquals("Caller cancelled.", error.message)
     }
 
     @Test

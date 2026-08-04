@@ -18,6 +18,9 @@ This file records completed repository-level changes. Future work belongs in [Ro
 - Replaced the stage-history roadmap with compact per-item `[x]` `DONE`, `[/]` `IN_PROGRESS`, and `[ ]` `TODO` status markers.
 - Consolidated REST, Kotlin API, formula tool, runtime profile, and Rust CLI examples in `docs/USAGE.md`.
 - Consolidated Kotlin, Rust, and pytest validation commands in `docs/TESTING.md`.
+- Normalized unexpected dispatcher, executor, and implementation failures into stable structured errors.
+- Added explicit timeout normalization while preserving caller cancellation and interruption semantics.
+- Removed raw provider exception details from LLM dispatcher failures.
 
 ### Removed
 

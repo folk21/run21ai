@@ -27,8 +27,8 @@ Completed release history belongs in [CHANGELOG.md](CHANGELOG.md). This file kee
 
 ## Execution Hardening
 
-- [/] Normalize dispatcher and tool implementation failures into structured `ToolResult` values with audit metadata.
-- [ ] Add stable error codes for internal failures, timeouts, and cancellation.
+- [x] Normalize dispatcher, dispatcher-chain, executor, and implementation failures into structured results with audit metadata.
+- [x] Add stable dispatcher, tool-execution, and timeout error codes; propagate cancellation without converting it into a result.
 - [/] Improve core and formula validation diagnostics while preserving stable public error contracts.
 - [/] Define which `CapabilityStatus` values are informational and which block execution.
 - [/] Decide whether `ContractSchema` is descriptive metadata or an enforced runtime contract; prefer validation before execution.

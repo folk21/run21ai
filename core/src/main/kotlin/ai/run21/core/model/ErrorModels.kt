@@ -42,7 +42,23 @@ enum class ToolErrorCode {
     /**
      * The dispatcher chain completed without any dispatcher accepting or rejecting the input.
      */
-    NO_DISPATCHER_ACCEPTED;
+    NO_DISPATCHER_ACCEPTED,
+
+    /**
+     * A dispatcher or dispatcher-chain implementation failed unexpectedly while preparing a
+     * ToolRequest.
+     */
+    DISPATCHER_FAILED,
+
+    /**
+     * A ToolExecutor or ToolImplementation failed unexpectedly after a tool path was selected.
+     */
+    TOOL_EXECUTION_FAILED,
+
+    /**
+     * Dispatch or tool execution exceeded its configured time budget.
+     */
+    TIMEOUT;
 
     val wireValue: String
         get() = name

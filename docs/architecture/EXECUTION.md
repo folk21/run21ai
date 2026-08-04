@@ -139,8 +139,22 @@ Current stable core error codes:
 - `INVALID_TOOL_REQUEST`
 - `DISPATCH_REJECTED`
 - `NO_DISPATCHER_ACCEPTED`
+- `DISPATCHER_FAILED`
+- `TOOL_EXECUTION_FAILED`
+- `TIMEOUT`
 
-Expected unsupported and validation states use structured errors. General exception normalization is not yet complete and is a current roadmap priority.
+## Exception Semantics
+
+Unexpected failures are normalized at the component boundary:
+
+- dispatcher failures become `DISPATCHER_FAILED` and stop dispatch with `rejected` status;
+- tool executor or implementation failures become `TOOL_EXECUTION_FAILED` with `failed` status;
+- dispatcher, executor, implementation, network, and provider timeouts become `TIMEOUT`;
+- dispatcher failures are recorded as rejected trace steps when the concrete dispatcher is known;
+- all normalized failures retain audit metadata;
+- raw exception classes, messages, and stack traces are not included in public error details.
+
+Cancellation is not a business failure. `CancellationException` and interruption are propagated to the caller so structured concurrency, request cancellation, and shutdown remain effective. Coroutine-style timeout cancellation is classified as `TIMEOUT` before general cancellation handling.
 
 ## Audit Metadata
 
@@ -173,4 +187,4 @@ The formula module owns its descriptor, input validation, implementation, and wi
 
 ## Unsupported and Future States
 
-Core provides controlled defaults for missing dispatch and execution support. The project still needs broader exception normalization, explicit default-implementation policy, registration consistency checks, and transport-level JSON value validation. These are implementation gaps, not alternative architectural models.
+Core provides controlled defaults for missing dispatch and execution support and normalizes unexpected component failures. The project still needs explicit default-implementation policy, registration consistency checks, execution budgets, and transport-level JSON value validation. These are implementation gaps, not alternative architectural models.

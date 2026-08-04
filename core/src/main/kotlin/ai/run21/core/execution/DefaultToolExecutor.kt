@@ -1,5 +1,6 @@
 package ai.run21.core.execution
 
+import ai.run21.core.failure.toNormalizedToolError
 import ai.run21.core.dispatch.DefaultToolRequestValidator
 import ai.run21.core.dispatch.ToolRequestValidationResult
 import ai.run21.core.dispatch.ToolRequestValidator
@@ -88,19 +89,37 @@ class DefaultToolExecutor(
 
         val startedAt = java.time.Instant.now()
 
-        // Real work happens in the implementation. The executor only owns routing, validation,
-        // result wrapping, and audit metadata creation.
-        val output = implementation.execute(request)
-        val auditMetadata = auditMetadataFactory.create(
-            request = request,
-            toolDescriptor = descriptor,
-            implementationDescriptor = implementation.descriptor,
-            startedAt = startedAt,
-        )
-        return ToolResultFactory.succeeded(
-            outputPayload = output.outputPayload,
-            auditMetadata = auditMetadata,
-            metadata = output.metadata,
-        )
+        return try {
+            val output = implementation.execute(request)
+            val auditMetadata = auditMetadataFactory.create(
+                request = request,
+                toolDescriptor = descriptor,
+                implementationDescriptor = implementation.descriptor,
+                startedAt = startedAt,
+            )
+            ToolResultFactory.succeeded(
+                outputPayload = output.outputPayload,
+                auditMetadata = auditMetadata,
+                metadata = output.metadata,
+            )
+        } catch (error: Exception) {
+            val normalizedError = error.toNormalizedToolError(
+                failureCode = ToolErrorCode.TOOL_EXECUTION_FAILED,
+                failureMessage = "Tool execution failed.",
+                timeoutMessage = "Tool execution timed out.",
+                details = mapOf(
+                    "phase" to "tool_execution",
+                    "toolCode" to toolCode.value,
+                    "implementationCode" to implementation.descriptor.implementationCode.value,
+                ),
+            )
+            val auditMetadata = auditMetadataFactory.create(
+                request = request,
+                toolDescriptor = descriptor,
+                implementationDescriptor = implementation.descriptor,
+                startedAt = startedAt,
+            )
+            ToolResultFactory.failed(normalizedError, auditMetadata)
+        }
     }
 }

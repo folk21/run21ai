@@ -1,5 +1,6 @@
 package ai.run21.core.dispatch
 
+import ai.run21.core.failure.toNormalizedToolError
 import ai.run21.core.model.ActorReference
 import ai.run21.core.model.CorrelationMetadata
 import ai.run21.core.model.DispatchAccepted
@@ -71,8 +72,33 @@ class OrderedDispatcherChain(
         )
 
         for (dispatcher in dispatchers) {
-            // Each dispatcher receives the latest input and shared dispatch context.
-            val outcome = dispatcher.dispatch(currentInput, context)
+            val outcome = try {
+                dispatcher.dispatch(currentInput, context)
+            } catch (error: Exception) {
+                val normalizedError = error.toNormalizedToolError(
+                    failureCode = ToolErrorCode.DISPATCHER_FAILED,
+                    failureMessage = "Dispatcher failed while preparing a tool request.",
+                    timeoutMessage = "Dispatcher timed out while preparing a tool request.",
+                    details = mapOf(
+                        "phase" to "dispatch",
+                        "dispatcherCode" to dispatcher.code.value,
+                    ),
+                )
+                val failureTraceStep = DispatcherTraceStep(
+                    dispatcherCode = dispatcher.code,
+                    outcome = DispatchOutcomeType.REJECTED,
+                    error = normalizedError,
+                    outputSummary = if (normalizedError.code == ToolErrorCode.TIMEOUT) {
+                        "Dispatcher timed out."
+                    } else {
+                        "Dispatcher failed."
+                    },
+                    correlationId = provenance.correlation.correlationId,
+                )
+                trace = trace.append(failureTraceStep)
+                return DispatcherChainResult.rejected(normalizedError, trace)
+            }
+
             val traceStep = (outcome.traceStep ?: DispatcherTraceStep(
                 dispatcherCode = dispatcher.code,
                 outcome = outcome.type,

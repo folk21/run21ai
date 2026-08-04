@@ -85,7 +85,10 @@ The current validator compares required and returned variable names with names f
 
 - An explicit model rejection becomes `DispatchRejected`.
 - Invalid structured output becomes `INVALID_TOOL_REQUEST` or a normalized model rejection.
-- Provider or transport exceptions are caught by `LlmDispatcher` and returned as `DISPATCH_REJECTED` with diagnostic details.
+- Provider or transport failures propagate to the dispatcher chain and are normalized as `DISPATCHER_FAILED`.
+- Provider or transport timeouts are normalized as `TIMEOUT`.
+- Caller cancellation propagates without being converted into a dispatch rejection.
+- Public errors do not expose raw provider exception classes or messages.
 - No tool implementation is invoked after dispatch rejection.
 
 ## Safety and Operational Rules

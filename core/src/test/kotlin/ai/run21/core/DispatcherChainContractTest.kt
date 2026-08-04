@@ -23,6 +23,8 @@ import ai.run21.core.model.RawDispatchInput
 import ai.run21.core.model.DispatcherChainResult
 import ai.run21.core.model.ToolError
 import ai.run21.core.model.ToolErrorCode
+import java.util.concurrent.CancellationException
+import java.util.concurrent.TimeoutException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -414,6 +416,66 @@ class DispatcherChainContractTest {
 
         assertEquals(ExecutionStatus.ACCEPTED, result.status)
         assertEquals(testToolCode(), result.request?.targetTool)
+    }
+
+    @Test
+    fun `TEST-DISP-008 dispatcher exception becomes structured rejection`() {
+        val dispatcher = object : Dispatcher {
+            override val code = DispatcherCode("throwing-dispatcher")
+
+            override suspend fun dispatch(input: DispatchInput, context: DispatchContext): DispatchAccepted {
+                error("Sensitive dispatcher detail.")
+            }
+        }
+        val input = RawDispatchInput(mapOf("prompt" to "x"), testActor(), testSource())
+
+        val result = runSuspend { OrderedDispatcherChain(listOf(dispatcher)).dispatch(input) }
+
+        assertEquals(ExecutionStatus.REJECTED, result.status)
+        assertEquals(ToolErrorCode.DISPATCHER_FAILED, result.error?.code)
+        assertEquals("Dispatcher failed while preparing a tool request.", result.error?.message)
+        assertEquals("throwing-dispatcher", result.error?.details?.get("dispatcherCode"))
+        assertEquals(result.error, result.trace.steps.single().error)
+        assertEquals(DispatchOutcomeType.REJECTED, result.trace.steps.single().outcome)
+        assertEquals(false, result.error?.details?.containsKey("exception"))
+        assertEquals(false, result.error?.details?.containsKey("message"))
+    }
+
+    @Test
+    fun `TEST-DISP-009 dispatcher timeout becomes TIMEOUT`() {
+        val dispatcher = object : Dispatcher {
+            override val code = DispatcherCode("timeout-dispatcher")
+
+            override suspend fun dispatch(input: DispatchInput, context: DispatchContext): DispatchAccepted {
+                throw TimeoutException("Timed out in test.")
+            }
+        }
+        val input = RawDispatchInput(mapOf("prompt" to "x"), testActor(), testSource())
+
+        val result = runSuspend { OrderedDispatcherChain(listOf(dispatcher)).dispatch(input) }
+
+        assertEquals(ExecutionStatus.REJECTED, result.status)
+        assertEquals(ToolErrorCode.TIMEOUT, result.error?.code)
+        assertEquals("Dispatcher timed out while preparing a tool request.", result.error?.message)
+        assertEquals("timeout-dispatcher", result.error?.details?.get("dispatcherCode"))
+    }
+
+    @Test
+    fun `TEST-DISP-010 dispatcher cancellation propagates to caller`() {
+        val dispatcher = object : Dispatcher {
+            override val code = DispatcherCode("cancelling-dispatcher")
+
+            override suspend fun dispatch(input: DispatchInput, context: DispatchContext): DispatchAccepted {
+                throw CancellationException("Cancelled in test.")
+            }
+        }
+        val input = RawDispatchInput(mapOf("prompt" to "x"), testActor(), testSource())
+
+        val error = assertFailsWith<CancellationException> {
+            runSuspend { OrderedDispatcherChain(listOf(dispatcher)).dispatch(input) }
+        }
+
+        assertEquals("Cancelled in test.", error.message)
     }
 
     @Test
