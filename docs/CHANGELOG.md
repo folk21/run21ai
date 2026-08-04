@@ -6,6 +6,8 @@ This file records completed repository-level changes. Future work belongs in [Ro
 
 ### Changed
 
+- Protected caller provenance in `OrderedDispatcherChain`; dispatchers can no longer replace
+  actor, source, or correlation values during enrichment or request acceptance.
 - Reduced the documentation hierarchy to a compact set of owning documents.
 - Replaced repeated architecture, core, tool, API, LLM, testing, and client explanations with links to their owners.
 - Reorganized architecture documentation into `ARCHITECTURE.md`, `EXECUTION.md`, and `LLM_DISPATCH.md` under `docs/architecture/`.

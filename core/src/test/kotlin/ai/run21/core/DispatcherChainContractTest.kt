@@ -4,6 +4,9 @@ import ai.run21.core.dispatch.Dispatcher
 import ai.run21.core.dispatch.OrderedDispatcherChain
 import ai.run21.core.dispatch.ToolRequestValidationResult
 import ai.run21.core.dispatch.ToolRequestValidator
+import ai.run21.core.model.ActorReference
+import ai.run21.core.model.ActorType
+import ai.run21.core.model.CorrelationMetadata
 import ai.run21.core.model.DispatchAccepted
 import ai.run21.core.model.DispatchContext
 import ai.run21.core.model.DispatchEnriched
@@ -13,6 +16,8 @@ import ai.run21.core.model.DispatchRejected
 import ai.run21.core.model.DispatcherCode
 import ai.run21.core.model.DispatcherTraceStep
 import ai.run21.core.model.DispatchOutcomeType
+import ai.run21.core.model.ExecutionSource
+import ai.run21.core.model.ExecutionSourceType
 import ai.run21.core.model.ExecutionStatus
 import ai.run21.core.model.RawDispatchInput
 import ai.run21.core.model.DispatcherChainResult
@@ -263,6 +268,112 @@ class DispatcherChainContractTest {
         assertEquals("pass", result.trace.steps[0].metadata["stage"])
         assertEquals("value", result.trace.steps[1].metadata["added"])
         assertEquals(testToolCode().value, result.trace.steps[2].metadata["targetTool"])
+    }
+
+    @Test
+    fun `TEST-DISP-006 accepted request keeps caller provenance when dispatcher returns replacement values`() {
+        val originalActor = ActorReference("original-actor", ActorType.HUMAN, "Original Actor")
+        val originalSource = ExecutionSource(ExecutionSourceType.API, "original-source")
+        val originalCorrelation = CorrelationMetadata(
+            executionId = "original-execution",
+            correlationId = "original-correlation",
+            causationId = "original-causation",
+        )
+        val input = RawDispatchInput(
+            payload = mapOf("prompt" to "run test tool"),
+            actor = originalActor,
+            source = originalSource,
+            correlation = originalCorrelation,
+        )
+        val dispatcher = object : Dispatcher {
+            override val code = DispatcherCode("replacement-provenance")
+
+            override suspend fun dispatch(input: DispatchInput, context: DispatchContext): DispatchAccepted =
+                DispatchAccepted(
+                    request = testToolRequest().copy(
+                        actor = ActorReference("replacement-actor", ActorType.AGENT),
+                        source = ExecutionSource(ExecutionSourceType.SYSTEM, "replacement-source"),
+                        correlation = CorrelationMetadata(
+                            executionId = "replacement-execution",
+                            correlationId = "replacement-correlation",
+                        ),
+                    ),
+                    traceStep = DispatcherTraceStep(
+                        dispatcherCode = code,
+                        outcome = DispatchOutcomeType.ACCEPTED,
+                        correlationId = "replacement-correlation",
+                    ),
+                )
+        }
+
+        val result = runSuspend { OrderedDispatcherChain(listOf(dispatcher)).dispatch(input) }
+
+        assertEquals(ExecutionStatus.ACCEPTED, result.status)
+        assertEquals(originalActor, result.request?.actor)
+        assertEquals(originalSource, result.request?.source)
+        assertEquals(originalCorrelation, result.request?.correlation)
+        assertEquals(originalCorrelation.correlationId, result.trace.steps.single().correlationId)
+    }
+
+    @Test
+    fun `TEST-DISP-007 enriched input keeps caller provenance for later dispatchers`() {
+        val originalActor = ActorReference("original-actor", ActorType.HUMAN, "Original Actor")
+        val originalSource = ExecutionSource(ExecutionSourceType.CLI, "original-source")
+        val originalCorrelation = CorrelationMetadata(
+            executionId = "original-execution",
+            correlationId = "original-correlation",
+        )
+        val input = RawDispatchInput(
+            payload = mapOf("prompt" to "original prompt"),
+            actor = originalActor,
+            source = originalSource,
+            correlation = originalCorrelation,
+        )
+        val enricher = object : Dispatcher {
+            override val code = DispatcherCode("replacement-provenance-enricher")
+
+            override suspend fun dispatch(input: DispatchInput, context: DispatchContext): DispatchEnriched =
+                DispatchEnriched(
+                    input = RawDispatchInput(
+                        payload = mapOf("prompt" to "enriched prompt"),
+                        actor = ActorReference("replacement-actor", ActorType.AGENT),
+                        source = ExecutionSource(ExecutionSourceType.SYSTEM, "replacement-source"),
+                        correlation = CorrelationMetadata(
+                            executionId = "replacement-execution",
+                            correlationId = "replacement-correlation",
+                        ),
+                        attributes = mapOf("enriched" to true),
+                    ),
+                )
+        }
+        val accepting = object : Dispatcher {
+            override val code = DispatcherCode("provenance-observer")
+
+            override suspend fun dispatch(input: DispatchInput, context: DispatchContext): DispatchAccepted {
+                assertEquals(originalActor, input.actor)
+                assertEquals(originalSource, input.source)
+                assertEquals(originalCorrelation, input.correlation)
+                assertEquals(mapOf("prompt" to "enriched prompt"), (input as RawDispatchInput).payload)
+                assertEquals(true, input.attributes["enriched"])
+
+                return DispatchAccepted(
+                    request = testToolRequest().copy(
+                        actor = input.actor,
+                        source = input.source,
+                        correlation = input.correlation,
+                    ),
+                )
+            }
+        }
+
+        val result = runSuspend {
+            OrderedDispatcherChain(listOf(enricher, accepting)).dispatch(input)
+        }
+
+        assertEquals(ExecutionStatus.ACCEPTED, result.status)
+        assertEquals(originalActor, result.request?.actor)
+        assertEquals(originalSource, result.request?.source)
+        assertEquals(originalCorrelation, result.request?.correlation)
     }
 
     @Test

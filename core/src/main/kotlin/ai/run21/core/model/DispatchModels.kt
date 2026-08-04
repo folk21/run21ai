@@ -88,7 +88,7 @@ sealed interface DispatcherOutcome {
 
 /**
  * Dispatcher outcome that provides a canonical ToolRequest and ends the dispatcher chain
- * successfully.
+ * successfully. The chain preserves the actor, source, and correlation from the original input.
  */
 data class DispatchAccepted(
     val request: ToolRequest,
@@ -99,6 +99,7 @@ data class DispatchAccepted(
 
 /**
  * Dispatcher outcome that replaces or enriches dispatch input and lets the chain continue.
+ * The chain preserves the actor, source, and correlation from the original input.
  */
 data class DispatchEnriched(
     val input: DispatchInput,

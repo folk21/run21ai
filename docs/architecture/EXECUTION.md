@@ -74,6 +74,19 @@ The first accepted or rejected outcome is terminal. If no dispatcher accepts or 
 
 Every dispatcher decision is appended to `DispatcherTrace`.
 
+## Caller Provenance
+
+The dispatcher chain owns caller provenance for the complete dispatch run:
+
+- `actor`;
+- `source`;
+- `correlation`.
+
+Dispatchers may enrich payloads and attributes or prepare tool routing and request metadata. They
+must not replace caller provenance. `OrderedDispatcherChain` copies the original provenance into
+every enriched input and into the accepted `ToolRequest` before validation, so downstream
+dispatchers, execution, and audit metadata observe the caller values supplied at the chain boundary.
+
 ## Execution Sequence
 
 After dispatch accepts a request:

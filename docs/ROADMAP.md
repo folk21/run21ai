@@ -15,6 +15,7 @@ Completed release history belongs in [CHANGELOG.md](CHANGELOG.md). This file kee
 - [x] Provide canonical `ToolRequest`, `ToolResult`, `ToolError`, and audit models.
 - [x] Provide `ToolCalls.execute(...)` and `ToolCalls.dispatch(...)` as the recommended high-level APIs.
 - [x] Provide ordered dispatching, pass-through structured dispatching, registries, default execution, and unsupported defaults.
+- [x] Preserve caller actor, source, and correlation provenance across dispatcher enrichment and acceptance.
 - [x] Add deterministic core contract tests without runtime framework dependencies.
 - [x] Add `:runtime:local` and the Ktor-based `:runtime:rest-api` runtime.
 - [x] Expose health, readiness, tool discovery, request resolution, execution, OpenAPI, and interactive API documentation endpoints.

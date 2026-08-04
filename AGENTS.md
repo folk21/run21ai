@@ -29,6 +29,8 @@ When documentation conflicts with code, verify the behavior, fix the owning docu
 - Keep dependencies pointing from runtimes, adapters, and tools toward core contracts.
 - Keep Ktor, EvalEx, Ollama, persistence, CLI frameworks, and external service SDKs outside `:core`.
 - Route every execution through a `DispatcherChain`.
+- Preserve caller provenance across dispatching: dispatchers must not replace actor, source, or
+  correlation values.
 - Use `PassThroughDispatcher` for already structured requests; do not create a second direct-execution path.
 - Keep LLM integrations outside `:core` and outside tool implementations.
 - Never let an LLM calculate the final business result or bypass `ToolExecutor`, audit metadata, validation, or runtime policy.
