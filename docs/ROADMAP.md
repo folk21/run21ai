@@ -37,8 +37,8 @@ Completed release history belongs in [CHANGELOG.md](CHANGELOG.md). This file kee
 - [ ] Make readiness validate the complete registration graph rather than descriptor count only.
 - [ ] Reject unknown HTTP enum values instead of silently substituting defaults.
 - [/] Make default implementation selection explicit and detect duplicate registrations during runtime assembly.
-- [ ] Replace blocking Ollama transport calls with asynchronous execution.
-- [/] Redact sensitive prompt and model-response data from dispatcher debug logging.
+- [x] Replace blocking Ollama transport calls with asynchronous execution.
+- [x] Redact sensitive prompt and model-response data from dispatcher debug logging.
 - [/] Activate deterministic raw-dispatch system coverage and remove obsolete `xfail` expectations.
 - [ ] Add one reproducible repository-level validation command and run it in continuous integration.
 

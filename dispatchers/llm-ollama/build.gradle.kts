@@ -12,6 +12,7 @@ dependencies {
 
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.18.3")
     implementation("org.antlr:ST4:4.3.4")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
 
     testImplementation(project(":test-support"))
     testImplementation(kotlin("test"))

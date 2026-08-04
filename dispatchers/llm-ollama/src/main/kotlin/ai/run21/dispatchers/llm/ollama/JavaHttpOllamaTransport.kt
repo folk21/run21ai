@@ -1,43 +1,113 @@
 package ai.run21.dispatchers.llm.ollama
 
+import kotlinx.coroutines.suspendCancellableCoroutine
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
+import java.nio.charset.StandardCharsets
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CompletionException
+import java.util.concurrent.ExecutionException
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 /**
- * Java HttpClient-based transport for Ollama's /api/chat endpoint.
+ * Asynchronous Java HttpClient transport for Ollama's `/api/chat` endpoint.
  *
- * The transport is separated from `OllamaLlmDispatchClient` so unit tests can verify client
- * behavior with a fake transport and without starting a real Ollama process.
+ * Debug diagnostics contain operational metadata only. Prompt text, serialized request bodies,
+ * response bodies, URI credentials, query parameters, and exception messages are never logged.
  */
 class JavaHttpOllamaTransport(
     private val httpClient: HttpClient = HttpClient.newHttpClient(),
+    private val debugSink: (String) -> Unit = { message -> System.err.println(message) },
 ) : OllamaTransport {
-    /**
-     * Sends one non-streaming chat request and parses Ollama's JSON response envelope.
-     */
-    override fun chat(request: OllamaChatRequest, config: OllamaLlmConfig): OllamaChatResponse {
+    override suspend fun chat(request: OllamaChatRequest, config: OllamaLlmConfig): OllamaChatResponse {
         val endpoint = config.baseUrl.resolve(URI.create("/api/chat"))
         val body = OllamaJson.mapper.writeValueAsString(request)
-        if (config.dispatcherDebug) {
-            System.err.println("RUN21 dispatcher debug: Ollama request POST $endpoint")
-            System.err.println(body)
-        }
         val httpRequest = HttpRequest.newBuilder(endpoint)
             .timeout(config.timeout)
             .header("Content-Type", "application/json")
             .POST(HttpRequest.BodyPublishers.ofString(body))
             .build()
 
-        val response = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString())
         if (config.dispatcherDebug) {
-            System.err.println("RUN21 dispatcher debug: Ollama response HTTP ${response.statusCode()}")
-            System.err.println(response.body())
+            debugSink(
+                "RUN21 dispatcher debug: Ollama request " +
+                    "method=POST endpoint=${endpoint.redactedForDiagnostics()} " +
+                    "model=${request.model} messageCount=${request.messages.size} " +
+                    "requestBytes=${body.utf8Size()}",
+            )
         }
+
+        val response = try {
+            httpClient
+                .sendAsync(httpRequest, HttpResponse.BodyHandlers.ofString())
+                .awaitCancellable()
+        } catch (failure: Throwable) {
+            if (config.dispatcherDebug) {
+                debugSink(
+                    "RUN21 dispatcher debug: Ollama request " +
+                        "outcome=failed failureType=${failure.redactedTypeName()}",
+                )
+            }
+            throw failure
+        }
+
+        val responseBody = response.body()
+        if (config.dispatcherDebug) {
+            debugSink(
+                "RUN21 dispatcher debug: Ollama response " +
+                    "status=${response.statusCode()} responseBytes=${responseBody.utf8Size()}",
+            )
+        }
+
         if (response.statusCode() !in 200..299) {
-            throw IllegalStateException("Ollama returned HTTP ${response.statusCode()}: ${response.body()}")
+            throw IllegalStateException("Ollama request failed with HTTP status ${response.statusCode()}.")
         }
-        return OllamaJson.mapper.readValue(response.body(), OllamaChatResponse::class.java)
+
+        return try {
+            OllamaJson.mapper.readValue(responseBody, OllamaChatResponse::class.java)
+        } catch (_: Exception) {
+            throw IllegalStateException("Ollama returned an invalid response envelope.")
+        }
     }
 }
+
+private suspend fun <T> CompletableFuture<T>.awaitCancellable(): T =
+    suspendCancellableCoroutine { continuation ->
+        whenComplete { value, failure ->
+            if (failure == null) {
+                continuation.resume(value)
+            } else {
+                continuation.resumeWithException(failure.unwrapCompletionFailure())
+            }
+        }
+        continuation.invokeOnCancellation {
+            cancel(true)
+        }
+    }
+
+private fun Throwable.unwrapCompletionFailure(): Throwable =
+    when (this) {
+        is CompletionException, is ExecutionException -> cause ?: this
+        else -> this
+    }
+
+private fun Throwable.redactedTypeName(): String =
+    unwrapCompletionFailure().javaClass.simpleName.ifBlank { "UnknownFailure" }
+
+private fun URI.redactedForDiagnostics(): String = buildString {
+    if (!scheme.isNullOrBlank()) {
+        append(scheme)
+        append("://")
+    }
+    append(host ?: "unknown-host")
+    if (port >= 0) {
+        append(':')
+        append(port)
+    }
+    append(path?.takeIf(String::isNotBlank) ?: "/")
+}
+
+private fun String.utf8Size(): Int = toByteArray(StandardCharsets.UTF_8).size

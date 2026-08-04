@@ -23,6 +23,8 @@ This file records completed repository-level changes. Future work belongs in [Ro
 - Removed raw provider exception details from LLM dispatcher failures.
 - Centralized audit timestamp creation in `AuditMetadataFactory` and propagated injected clocks through default runtime wiring.
 - Replaced the implicit system-time default of `AuditMetadata.completedAt` with a deterministic `startedAt` fallback.
+- Replaced blocking Ollama HTTP calls with cancellable `HttpClient.sendAsync()` transport execution.
+- Replaced raw Ollama request/response debug output with redacted operational metadata.
 
 ### Removed
 

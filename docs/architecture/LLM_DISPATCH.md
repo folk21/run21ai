@@ -25,7 +25,7 @@ An LLM dispatcher must not:
 | Module | Responsibility |
 |---|---|
 | `:dispatchers:llm` | Provider-neutral prompt/response contracts, mapping to `ToolRequest`, and `LlmDispatcher` |
-| `:dispatchers:llm-ollama` | Ollama configuration, Java HTTP transport, prompt resources, JSON schema, response parsing, and formula-specific normalization |
+| `:dispatchers:llm-ollama` | Ollama configuration, asynchronous Java HTTP transport, prompt resources, JSON schema, response parsing, and formula-specific normalization |
 | `:runtime:rest-api` | Chooses whether the formula-only or Ollama dispatcher profile is active |
 
 Provider-specific code must not leak into `:core`.
@@ -87,7 +87,7 @@ The current validator compares required and returned variable names with names f
 - Invalid structured output becomes `INVALID_TOOL_REQUEST` or a normalized model rejection.
 - Provider or transport failures propagate to the dispatcher chain and are normalized as `DISPATCHER_FAILED`.
 - Provider or transport timeouts are normalized as `TIMEOUT`.
-- Caller cancellation propagates without being converted into a dispatch rejection.
+- Caller cancellation propagates without being converted into a dispatch rejection and cancels the in-flight HTTP future.
 - Public errors do not expose raw provider exception classes or messages.
 - No tool implementation is invoked after dispatch rejection.
 
@@ -97,7 +97,7 @@ The current validator compares required and returned variable names with names f
 - Keep retry count bounded when retries are introduced.
 - Apply runtime allowlists before exposing tools to a model.
 - Keep implementation selection under runtime policy by default.
-- Do not log raw prompts or model responses containing sensitive data.
+- Dispatcher debug logging is redacted: it records endpoint, model, message count, status, payload sizes, and failure type without logging request bodies, response bodies, URI credentials, query parameters, or exception messages.
 - Record model and prompt metadata in trace snapshots when the adapter supports it.
 - Keep external-model integration tests optional; deterministic tests use fake clients and fixed responses.
 

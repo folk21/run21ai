@@ -126,7 +126,7 @@ class OllamaLlmDispatchClientTest {
         var request: OllamaChatRequest? = null
         var config: OllamaLlmConfig? = null
 
-        override fun chat(request: OllamaChatRequest, config: OllamaLlmConfig): OllamaChatResponse {
+        override suspend fun chat(request: OllamaChatRequest, config: OllamaLlmConfig): OllamaChatResponse {
             this.request = request
             this.config = config
             return response

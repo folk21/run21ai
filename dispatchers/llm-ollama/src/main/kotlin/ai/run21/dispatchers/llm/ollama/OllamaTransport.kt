@@ -1,14 +1,17 @@
 package ai.run21.dispatchers.llm.ollama
 
 /**
- * Small transport boundary for the Ollama chat endpoint.
+ * Asynchronous transport boundary for the Ollama chat endpoint.
  *
- * Production uses Java HttpClient; unit tests provide an in-memory implementation that captures the
- * generated request and returns a deterministic response.
+ * Production uses Java `HttpClient.sendAsync`; tests can provide a deterministic in-memory
+ * implementation without starting an Ollama process.
  */
 fun interface OllamaTransport {
     /**
-     * Sends a chat request using the supplied runtime configuration.
+     * Sends a chat request without blocking the caller thread.
+     *
+     * Caller cancellation should cancel the underlying transport operation when the implementation
+     * supports it. Timeout failures must remain distinguishable from caller cancellation.
      */
-    fun chat(request: OllamaChatRequest, config: OllamaLlmConfig): OllamaChatResponse
+    suspend fun chat(request: OllamaChatRequest, config: OllamaLlmConfig): OllamaChatResponse
 }

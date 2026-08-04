@@ -77,7 +77,7 @@ Supported environment variables:
 | `RUN21_LLM_BASE_URL` | `http://localhost:11434` | Ollama server URL |
 | `RUN21_LLM_TIMEOUT_MS` | `30000` | Ollama request timeout |
 | `RUN21_LLM_TEMPERATURE` | `0.0` | Ollama generation temperature |
-| `RUN21_DISPATCHER_DEBUG` | `false` | Prints full dispatcher request/response diagnostics; use only with non-sensitive test data |
+| `RUN21_DISPATCHER_DEBUG` | `false` | Prints redacted dispatcher transport metadata without prompt or response bodies |
 
 The current Ollama adapter supports formula request preparation only. See [LLM Dispatch](architecture/LLM_DISPATCH.md) for the boundary and limitations.
 
